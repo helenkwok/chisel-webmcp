@@ -208,8 +208,8 @@ do not patch its application code. The README states this boundary in a table at
 
 ### Working project
 - [x] Live URL responds 200 and loads
-- [ ] 17 CAD tools present after deploying fillet and chamfer
-- [ ] `/shell/` composes 17 CAD tools with 2 shell tools in the production in-app browser
+- [x] 17 CAD tools present in a fresh production root session
+- [x] `/shell/` composes 17 CAD tools with 2 shell tools in the production in-app browser
 - [x] Confirm dialog fires on writes
 - [x] Geometry persists across reload
 - [x] Gated STEP export reports success on the deployed `/shell/` route

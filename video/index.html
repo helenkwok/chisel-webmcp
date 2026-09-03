@@ -44,6 +44,13 @@
 </head>
 <body>
 <div id="stage">
+  <section class="card" id="c0">
+    <div class="kicker">Measured by the CAD kernel</div>
+    <div class="stat">282.74<span style="font-size:.38em;color:var(--muted);font-weight:700"> mm³</span></div>
+    <h2>removed by two 6 mm holes.</h2>
+    <p>Exactly 2·π·3²·5. The agent can check its own arithmetic, and a mesh would never land on that number.</p>
+  </section>
+
   <section class="card" id="c1">
     <div class="kicker">Chisel · WebMCP</div>
     <h1>An agent with a real<br>CAD kernel.</h1>
@@ -146,28 +153,38 @@ if (framed) {
 // HyperFrames drives `tl.seek(frame / fps)` when rendering, so nothing here may
 // depend on wall-clock; everything is a function of timeline position.
 let tl;
+const STAT_INTRO = new URLSearchParams(location.search).has("stat");
+const DURATION = STAT_INTRO ? 17.4 : 14;
 function build() {
   const n = document.getElementById("statN");
   const t = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
-  t.to("#scrub", { scaleX: 1, duration: 14, ease: "none" }, 0)
-   .to("#c1", { opacity: 1, duration: .8 }, 0)
-   .from("#c1 h1", { y: 40, opacity: 0, duration: .9 }, .15)
-   .to("#l1", { scaleX: 1, duration: .8 }, .5)
-   .to("#c1", { opacity: 0, duration: .6 }, 3.2)
-   .to("#live", { opacity: 1, duration: .8 }, 3.6)
-   .from("#live .cap", { y: 30, opacity: 0, duration: .9 }, 4.0)
-   .to("#live", { opacity: 0, duration: .6 }, 8.6)
-   .to("#c3", { opacity: 1, duration: .6 }, 9.0)
-   .to(n, { textContent: () => state.calls, snap: { textContent: 1 }, duration: 1.6, ease: "power2.out" }, 9.1)
-   .to("#c3", { opacity: 0, duration: .6 }, 11.6)
-   .to("#c4", { opacity: 1, duration: .8 }, 12.0)
-   .from("#c4 h1", { y: 40, opacity: 0, duration: .9 }, 12.1);
+  // Optional opening beat, used when filming: the one number that proves the
+  // kernel is real, before any words. Everything after it shifts by `o`.
+  const o = STAT_INTRO ? 3.4 : 0;
+  if (STAT_INTRO) {
+    t.to("#c0", { opacity: 1, duration: .5 }, 0)
+     .from("#c0 .stat", { y: 30, opacity: 0, duration: .8 }, .1)
+     .to("#c0", { opacity: 0, duration: .5 }, 2.9);
+  }
+  t.to("#scrub", { scaleX: 1, duration: DURATION, ease: "none" }, 0)
+   .to("#c1", { opacity: 1, duration: .8 }, o + 0)
+   .from("#c1 h1", { y: 40, opacity: 0, duration: .9 }, o + .15)
+   .to("#l1", { scaleX: 1, duration: .8 }, o + .5)
+   .to("#c1", { opacity: 0, duration: .6 }, o + 3.2)
+   .to("#live", { opacity: 1, duration: .8 }, o + 3.6)
+   .from("#live .cap", { y: 30, opacity: 0, duration: .9 }, o + 4.0)
+   .to("#live", { opacity: 0, duration: .6 }, o + 8.6)
+   .to("#c3", { opacity: 1, duration: .6 }, o + 9.0)
+   .to(n, { textContent: () => state.calls, snap: { textContent: 1 }, duration: 1.6, ease: "power2.out" }, o + 9.1)
+   .to("#c3", { opacity: 0, duration: .6 }, o + 11.6)
+   .to("#c4", { opacity: 1, duration: .8 }, o + 12.0)
+   .from("#c4 h1", { y: 40, opacity: 0, duration: .9 }, o + 12.1);
   return t;
 }
 function play() { tl?.kill(); tl = build(); tl.play(0); }
 
 // HyperFrames render hook: the CLI seeks the timeline by time rather than playing it.
-window.__hyperframes = { duration: 14, seek: (t) => { if (!tl) { tl = build(); } tl.pause(); tl.seek(t, false); } };
+window.__hyperframes = { duration: DURATION, seek: (t) => { if (!tl) { tl = build(); } tl.pause(); tl.seek(t, false); } };
 
 // The live frame is the CAD app with its own badge and activity log. Inside a
 // showreel those are clutter over the caption, so hide them in that frame only.

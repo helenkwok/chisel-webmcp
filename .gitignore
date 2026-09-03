@@ -7,6 +7,7 @@ dist/
 *.log
 docs/video/narration-sections/*.aiff
 docs/video/narration.wav
+docs/NARRATION.txt
 docs/video/qa/
 docs/video/.*-profile/
 docs/video/overlays/

@@ -7,3 +7,6 @@ docs/video/narration-sections/*.aiff
 docs/video/narration.wav
 docs/video/qa/
 docs/video/.chrome-probe-profile/
+docs/video/.chrome-probe-profile/
+docs/video/overlays/
+docs/video/*.mp4

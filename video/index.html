@@ -52,7 +52,7 @@
   </section>
 
   <div id="live">
-    <iframe src="/cad/" title="live CAD session"></iframe>
+    <iframe id="liveCad" src="/cad/" title="live CAD session"></iframe>
     <div class="vignette"></div>
     <div class="cap">
       <div class="kicker">Live session</div>
@@ -159,6 +159,17 @@ function play() { tl?.kill(); tl = build(); tl.play(0); }
 
 // HyperFrames render hook: the CLI seeks the timeline by time rather than playing it.
 window.__hyperframes = { duration: 14, seek: (t) => { if (!tl) { tl = build(); } tl.pause(); tl.seek(t, false); } };
+
+// The live frame is the CAD app with its own badge and activity log. Inside a
+// showreel those are clutter over the caption, so hide them in that frame only.
+// Same origin, so a stylesheet can be injected; nothing upstream is modified.
+document.getElementById("liveCad").addEventListener("load", (e) => {
+  try {
+    const st = e.target.contentDocument.createElement("style");
+    st.textContent = "[data-chisel-badge],[data-chisel-activity]{display:none!important}";
+    e.target.contentDocument.head.appendChild(st);
+  } catch { /* cross-origin host: leave it */ }
+});
 
 // Standalone: autoplay once so the page is never a black box.
 if (!framed) setTimeout(play, 600);

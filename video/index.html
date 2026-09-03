@@ -48,7 +48,7 @@
     <div class="kicker">Chisel · WebMCP</div>
     <h1>An agent with a real<br>CAD kernel.</h1>
     <p>OpenCascade in a browser tab. Every modelling verb is a WebMCP tool.</p>
-    <div class="line" id="l1" style="bottom:38%"></div>
+    <div class="line" id="l1" style="bottom:27%"></div>
   </section>
 
   <div id="live">
@@ -109,6 +109,11 @@ const TOOLS = [
 
 const text = (v, isError = false) => ({ content: [{ type: "text", text: typeof v === "string" ? v : JSON.stringify(v, null, 1) }], isError });
 const catalogue = TOOLS.map(({ name, title, description, inputSchema, write }) => ({ name, title, description, inputSchema, write }));
+
+if (new URLSearchParams(location.search).has("capture")) {
+  document.getElementById("badge").style.display = "none";
+  document.getElementById("scrub").style.display = "none";
+}
 
 function post(msg) { try { window.parent.postMessage(msg, location.origin); } catch {} }
 const framed = (() => { try { return window.parent !== window; } catch { return true; } })();

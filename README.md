@@ -19,36 +19,42 @@ Per the challenge rules (Section 4), here is the boundary, stated plainly:
 
 | | |
 |---|---|
-| **Written by us, new, in this repo** | The entire WebMCP layer: `plugins/webmcp/` — the tool catalogue, the JSON Schemas, the registration-boundary gate, the human confirm seam, the output cap, the honest affected count. ~600 lines. |
+| **Written by us, new, in this repo** | The entire WebMCP integration: `plugins/webmcp/` and `shell/` — 14 CAD tools, the registration-boundary gate, the human confirm seam, the activity panel, the framed-app bridge, and a shell that merges tools from multiple web apps into one agent surface. |
 | **NOT ours — third-party open source** | The CAD application itself: [**Chili3d**](https://github.com/xiangechen/chili3d) by xiangechen (AGPL-3.0), which supplies the OpenCascade 8.0.0 WASM kernel, the Three.js viewport, IndexedDB persistence and STEP/IGES/BREP/STL export. |
 
 **We did not write the CAD kernel and we do not claim to.** What we built is the agent surface for
 one — which is the thing this hackathon is about.
 
-**We did not fork Chili3d either.** Not one upstream file is modified. Chili3d's `AppBuilder`
-already fetches `<origin>/plugins/plugins.json` at boot and loads what it lists from the same
-origin, so Chisel is a genuine drop-in: `scripts/vendor.mjs` clones upstream at a pinned commit,
-builds it untouched, and copies our plugin into the output tree.
+**We did not maintain a fork or patch Chili3d's application code.** Chili3d's `AppBuilder` already
+fetches `<origin>/plugins/plugins.json` at boot and loads what it lists from the same origin.
+`scripts/vendor.mjs` checks out a pinned upstream commit in a build-only staging directory, adds
+our plugin to that documented plugin list, and produces the combined deployable bundle.
 
 ```
 chisel-webmcp/                  ← this repo: 100% new work
   plugins/webmcp/src/
     gate.ts                     ← the registration boundary (read this one first)
     service.ts                  ← registers tools; owns the confirm dialog
+    bridge.ts                   ← publishes a framed app's tools to a same-origin shell
+    activityPanel.ts            ← visible audit trail for agent calls and approvals
     tools/read.ts               ← 6 read tools
-    tools/write.ts              ← 1 gated write tool
-  scripts/vendor.mjs            ← pins + builds upstream Chili3d, unmodified
+    tools/write.ts              ← 8 named write tools, one shared operation core
+  shell/index.html              ← merges the CAD tools with shell-owned tools
+  scripts/vendor.mjs            ← pins upstream and builds the combined bundle
 
 deployed bundle:
-  dist/                         ← upstream Chili3d, byte-for-byte
-  dist/plugins/webmcp/          ← our plugin, auto-loads at boot
+  dist/                         ← the pinned Chili3d build plus Chisel integration
+  dist/plugins/webmcp/          ← our plugin, auto-loaded at boot
+  dist/shell/                   ← the multi-app WebMCP shell
 ```
 
 ---
 
 ## The tools
 
-Six read tools and **exactly one** write tool.
+The CAD app exposes **14 tools**: six read tools and eight named write tools. The optional
+[`/shell/`](https://chisel-webmcp.helenkwok.workers.dev/shell/) adds two shell-owned read tools,
+giving the top-level agent one 16-tool surface across two apps.
 
 | Tool | |
 |---|---|
@@ -58,9 +64,16 @@ Six read tools and **exactly one** write tool.
 | `chisel_query_objects` | Find objects by name substring / kind |
 | `chisel_get_object` | Detail for one object: bounding box, size, transform, material |
 | `chisel_get_change_log` | Recent undo history — lets the agent verify its own work |
-| **`chisel_apply_operation`** | **The only tool that can change anything.** `create_box`, `create_cylinder`, `create_sphere`, `boolean_cut`, `boolean_union`, `move`, `delete` |
+| `chisel_create_box` | Create a rectangular B-rep solid |
+| `chisel_create_cylinder` | Create a cylindrical B-rep solid |
+| `chisel_create_sphere` | Create a spherical B-rep solid |
+| `chisel_boolean_cut` | Subtract one or more solids from a target |
+| `chisel_boolean_union` | Fuse solids into one result |
+| `chisel_move` | Translate an object in millimetres |
+| `chisel_delete` | Remove one or more objects |
+| `chisel_undo` | Retract the most recent document change |
 
-## Why one write tool instead of ten
+## Why eight write tools share one gate
 
 WebMCP has **no consent primitive, no user-activation requirement**, and `readOnlyHint` is
 advisory — an agent may ignore it. The spec's own words: agents *"must assume good faith from
@@ -74,9 +87,11 @@ If you enforce per-handler, the eleventh tool someone adds is ungated until its 
 the line. So every registration goes through one wrapper, and there is deliberately no exported
 path that registers a tool without it.
 
-**2. One write verb, one confirm.** Every mutation an agent can perform passes the same in-page
-approval dialog, which shows the exact call. Declining means the handler *never runs* — not "runs
-and rolls back". Ten open write verbs would be a larger surface and less judgement.
+**2. Narrow tools are easier to call correctly.** An earlier version hid every operation behind a
+single enum-driven dispatcher. That did not reduce authority — seven operations are still seven
+operations — and it made tool selection less reliable. Named tools provide smaller schemas while
+still funnelling every mutation through the same in-page approval dialog. Declining means the
+handler *never runs* — not "runs and rolls back."
 
 **3. The affected count is honest.** An operation that changed nothing returns an **error**, never
 a cheerful "done". This answers the spec's own stated threat — *"a tool can claim to be read-only
@@ -88,6 +103,16 @@ prompt-injection control, not cosmetics: a tool result is text the agent reads a
 a CAD app that text derives from model content authored by whoever made the file — untrusted
 third-party data. Silent truncation is worse than none, because the agent acts on half a picture
 believing it whole.
+
+## The multi-app shell
+
+WebMCP tools belong to a document, and an agent talks to the top-level document. Chisel turns that
+constraint into a composition primitive: a same-origin app frame publishes its catalogue to the
+shell, the shell registers those verbs alongside its own, and calls are forwarded back to the
+original app. The shell never receives an ungated CAD handler, so the confirmation UI remains in
+the app that owns the model. Today the second app reports session and model statistics; the bridge
+protocol is intentionally catalogue-driven so another app can join without the shell knowing its
+tools at compile time.
 
 ---
 
@@ -117,17 +142,18 @@ Worth saying out loud, because both are true and easy to get wrong:
 ## Running it
 
 ```bash
-npm run vendor     # clones + builds upstream Chili3d at a pinned commit
-npm run build      # builds the plugin and drops it into the bundle
-npm run preview    # serve dist/ and open it
+npm run build      # fetch the pinned Chili3d commit and build the combined bundle
+npm run preview    # serve dist/ on localhost:8080
 ```
 
 Requires **Chrome 149+** with `chrome://flags/#enable-webmcp-testing` enabled, or the ChatGPT
 desktop in-app browser. Without WebMCP the plugin degrades to a no-op and Chili3d works normally —
 you'll see a badge saying so.
 
+The direct CAD experience is at `/`; the multi-app composition demo is at `/shell/`.
+
 ## Licence
 
 Our code is **MIT** (see [LICENSE](LICENSE)). A deployed bundle combining it with Chili3d is a
-combined work governed by **AGPL-3.0**, whose Corresponding Source is this repository plus
-unmodified upstream Chili3d at the commit pinned in `scripts/vendor.mjs`. Both are public.
+combined work governed by **AGPL-3.0**. Its Corresponding Source is this repository together with
+the public Chili3d commit pinned in `scripts/vendor.mjs`.

@@ -2,7 +2,7 @@
 //
 // THE WRITE TOOLS, AND THE ONE PLACE THEY ARE ENFORCED.
 //
-// Seven named tools with narrow schemas, all funnelling into one operation core
+// Eight named tools with narrow schemas, all funnelling into one operation core
 // and all registered through one gate. The safety property is NOT "there is
 // only one write tool" — that claim was wrong, and an external reviewer was
 // right to say so. An operation enum is not a sandbox; seven operations behind
@@ -91,7 +91,7 @@ const OPERATION_CORE: ToolDef = {
     title: "Apply a modelling operation",
     write: true,
     description:
-        "Perform ONE solid-modelling operation on the CAD document. This is the only tool that can change the model, and every call is shown to the human for confirmation before it runs. " +
+        "Internal shared operation core for the named modelling tools. Every registered write call is shown to the human for confirmation before it runs. " +
         "Dimensions are in millimetres. Returns the number of objects actually created, changed or removed — if that number is zero the call is reported as an error, so trust the count. " +
         "Supported operations: create_box, create_cylinder, create_sphere, boolean_cut (subtract tools from a target), boolean_union, move, delete.",
     inputSchema: {

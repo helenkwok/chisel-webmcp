@@ -8,17 +8,19 @@ with background music does not meet the rules. AI text-to-speech narration is al
 
 **Open on working geometry within the first 10 seconds.** Judges watch a lot of these.
 
-Live URL: <https://chisel-webmcp.helenkwok.workers.dev>
+Live URL: <https://chisel-webmcp.helenkwok.workers.dev/shell/>
 
-Before recording: open the site once, let the OCCT WASM warm the cache, then hard-reload so the
-recorded load is fast. Clear any existing document so you start empty.
+Before recording: open the site once, let the OCCT WASM warm the cache, and build the finished
+bracket. Hard-reload so the recorded load is fast. Start on the finished geometry for the hook,
+then clear the document before the live build.
 
 ---
 
 ## 0:00–0:15 — The hook, on screen immediately
 
-**On screen:** the app already open, empty viewport, Chisel badge visible bottom-left reading
-*"WebMCP ready — 7 tools registered"*. Agent panel open beside it.
+**On screen:** the finished bracket already visible in the framed CAD app. The shell header reads
+*"16 tools registered across 2 apps"*. Hold for three seconds, then clear the document. Keep the
+agent activity panel and shell statistics visible.
 
 **Type the prompt live** (don't paste — it reads as real):
 
@@ -33,8 +35,8 @@ Make me a mounting bracket 80 by 40 by 5 millimetres with two 6mm holes, 50mm ap
 
 ## 0:15–0:50 — The agent calls the kernel
 
-**On screen:** the agent calls `chisel_get_document_info`, then `chisel_apply_operation` with
-`create_box`. **The confirm dialog appears.** Let it sit for a beat before approving.
+**On screen:** the agent calls `chisel_get_document_info`, then `chisel_create_box`.
+**The confirm dialog appears.** Let it sit for a beat before approving.
 
 **Say:**
 
@@ -103,10 +105,10 @@ Then use **File → Export → STEP** (or the download control) and show the `.s
 **Say:**
 
 > To be straight about what I built: the CAD application is Chili3d, an excellent open-source
-> project I did not write. What I built is the agent surface for it — seven tools, one gated
-> write, and the safety layer around them. And it isn't a fork; not one upstream file is
-> modified. Chili3d already loads plugins from its own origin, so Chisel is a genuine drop-in.
-> That's the thing I'd want for any app: your CAD tool, your agent, no rewrite.
+> project I did not write. What I built is the WebMCP integration: fourteen CAD tools, one shared
+> safety gate, and a shell that merges them with another app's tools. We maintain no fork and
+> patch none of Chili3d's application code; its existing plugin system is the integration point.
+> That's the thing I'd want for any app: your app, your agent, no rewrite.
 
 **Hard stop.**
 
@@ -114,8 +116,8 @@ Then use **File → Export → STEP** (or the download control) and show the `.s
 
 ## Recording checklist
 
-- [ ] WebMCP flag enabled; badge shows **7 tools registered** before you start
-- [ ] Empty document at frame 1
+- [ ] WebMCP flag enabled; shell shows **16 tools registered across 2 apps**
+- [ ] Finished bracket visible in the first 10 seconds, then document cleared for the live build
 - [ ] **Audio narration present** (rules requirement — silent + music is a fail)
 - [ ] Confirm dialog clearly visible at least once, and paused on
 - [ ] `affectedCount: 4` legible on screen

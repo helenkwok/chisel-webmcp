@@ -11,7 +11,7 @@ Paste-ready. Fields match the WebMCP Challenge submission form.
 **Built with:** WebMCP (`document.modelContext`), Chili3d, OpenCascade (OCCT 8.0.0) via
 WebAssembly, Three.js, TypeScript, Rspack, IndexedDB, Cloudflare Workers
 
-**Live URL:** https://chisel-webmcp.helenkwok.workers.dev
+**Live URL:** https://chisel-webmcp.helenkwok.workers.dev/shell/
 
 **Repository:** https://github.com/helenkwok/chisel-webmcp  (MIT)
 
@@ -21,8 +21,9 @@ WebAssembly, Three.js, TypeScript, Rspack, IndexedDB, Cloudflare Workers
 
 Chisel exposes a real B-rep CAD kernel to in-browser AI agents through WebMCP. Ask for "a mounting
 bracket 80×40×5mm with two 6mm holes" and the agent calls OpenCascade directly — `create_box`,
-`create_cylinder`, `boolean_cut` — producing a genuine solid you can export as STEP. Six read
-tools, exactly one gated write, and a safety layer built for a standard that ships none.
+`create_cylinder`, `boolean_cut` — producing a genuine solid you can export as STEP. Fourteen CAD
+tools, a single registration-boundary gate for every mutation, and a shell that composes multiple
+web apps into one 16-tool agent surface.
 
 ---
 
@@ -40,15 +41,21 @@ part. If WebMCP is right about anything, it is right here.
 
 ### What it does
 
-Chisel registers seven tools on `document.modelContext` inside a working browser CAD application:
+Chisel registers 14 tools on `document.modelContext` inside a working browser CAD application:
 
 **Six read tools** — `chisel_get_document_info`, `chisel_get_scene_tree`, `chisel_get_selection`,
 `chisel_query_objects`, `chisel_get_object`, `chisel_get_change_log`. These let an agent inspect
 the model: hierarchy, ids, real bounding boxes, what the human currently has selected (so "this
 one" resolves to something), and the undo history so it can verify its own work.
 
-**Exactly one write tool** — `chisel_apply_operation`, covering `create_box`, `create_cylinder`,
-`create_sphere`, `boolean_cut`, `boolean_union`, `move` and `delete`.
+**Eight narrowly scoped write tools** — create box, cylinder and sphere; boolean cut and union;
+move; delete; and undo. Small schemas make calls more reliable, while every write still passes
+through the same registration-boundary gate and exact-call approval dialog.
+
+The `/shell/` route demonstrates a second WebMCP idea: composition. Because agents talk to the
+top-level document, the framed CAD app publishes its tool catalogue to a same-origin shell. The
+shell registers those 14 verbs alongside two of its own — connected-app discovery and session
+statistics — then forwards CAD calls back to the app that owns the model and its consent UI.
 
 The result is a real solid: OpenCascade B-rep geometry, persisted to IndexedDB so it survives a
 reload, exportable as STEP, IGES, BREP or STL. The agent produces a manufacturable file, not a
@@ -57,15 +64,15 @@ mesh that looks like one.
 ### How we built it
 
 Chili3d's `AppBuilder` already fetches `<origin>/plugins/plugins.json` at boot and loads what it
-lists from the same origin — which means no trust dialog and, more importantly, **no fork**. Not
-one upstream file is modified. `scripts/vendor.mjs` clones Chili3d at a pinned commit, builds it
-untouched, and drops our plugin into the output tree.
+lists from the same origin. We maintain no fork and patch none of Chili3d's application code.
+`scripts/vendor.mjs` checks out a pinned upstream commit in a build-only staging directory, adds
+our plugin to the documented plugin list, and emits the combined deployable bundle.
 
 Chili3d's `PluginManager` calls `service.register(app)` then `service.start()` on load, which is
 the only hook that hands a plugin the live `IApplication` at boot. The entire WebMCP surface hangs
 off that one service.
 
-### Why one write tool instead of ten
+### Why eight write tools share one gate
 
 This is the design decision we'd most like judged.
 
@@ -79,8 +86,10 @@ So:
 1. **Enforcement lives at the registration boundary, not in handlers.** If you enforce per-handler,
    the eleventh tool someone adds is ungated until its author remembers the line. Every
    registration goes through one wrapper and there is deliberately no exported path around it.
-2. **One write verb, one confirm.** Every mutation passes the same in-page approval showing the
-   exact call. Declining means the handler *never runs* — not "runs and rolls back."
+2. **Named verbs improve agent reliability without expanding authority.** An operation enum is not
+   a sandbox; seven operations behind one dispatcher are still seven operations. Small schemas are
+   easier for models to call correctly, while every mutation still passes the same approval path.
+   Declining means the handler *never runs* — not "runs and rolls back."
 3. **The affected count is honest.** An operation that changed nothing returns an **error**, never
    a cheerful "done". This answers the spec's own stated threat — *"a tool can claim to be
    read-only while changing data"* — and its mirror image: a tool claiming success while changing
@@ -116,6 +125,8 @@ costs a confusing `"Failed to parse input arguments"` until you work it out.
   `affectedCount` of 4.
 - A drop-in that forks nothing — any Chili3d deployment can add an agent surface by copying one
   directory.
+- A catalogue-driven shell that exposes 16 tools across two independently owned web apps without
+  bypassing the CAD app's consent gate.
 - A safety layer we'd defend on its merits rather than as hackathon garnish.
 
 ### Two honest things about WebMCP
@@ -149,8 +160,8 @@ letting the agent read a selected *face* rather than a whole object, so "chamfer
 WebMCP layer is 100% new.
 
 **Chili3d is third-party open source that we did not write and do not claim** — it supplies the
-OCCT WASM kernel, viewport, persistence and STEP export. It is unmodified and vendored at a pinned
-commit. The README states this boundary in a table at the top.
+OCCT WASM kernel, viewport, persistence and STEP export. We build from a pinned public commit and
+do not patch its application code. The README states this boundary in a table at the top.
 
 ---
 
@@ -158,12 +169,25 @@ commit. The README states this boundary in a table at the top.
 
 | Field | Value |
 |---|---|
-| Live URL | https://chisel-webmcp.helenkwok.workers.dev |
+| Live URL | https://chisel-webmcp.helenkwok.workers.dev/shell/ |
 | Repository | https://github.com/helenkwok/chisel-webmcp |
 | Licence | MIT (detectable in About) |
 | Demo video | *(paste public YouTube URL — must be <3 min WITH AUDIO)* |
 | Deployed on | Cloudflare Workers |
 | Test instructions | Chrome 149+ with `chrome://flags/#enable-webmcp-testing`, or ChatGPT desktop in-app browser. No login required. |
+
+### Official form-specific fields
+
+| Field | Draft answer |
+|---|---|
+| Submitter Type | **TODO: confirm Individual / Team of Individuals / Organization** |
+| Country of residence | **TODO: confirm for every team member** |
+| App Status | New |
+| Existing-project update | Chisel is a new project created during the submission period. It integrates the pre-existing open-source Chili3d CAD application without claiming that upstream work as ours. All WebMCP integration, safety, activity, bridge, and shell code is new and isolated in this repository. |
+| Agents/clients tested | Google Chrome 152 with `chrome://flags/#enable-webmcp-testing` enabled. **TODO: add ChatGPT in-app browser only after a final live tool-call check there.** |
+| AI tools used | Codex for implementation, debugging, review and submission preparation; Claude for concurrent development-server and browser iteration; Grok for adversarial design review. |
+| Learning derived | Significant |
+| Reusable career AI value | Yes |
 
 ---
 
@@ -171,7 +195,8 @@ commit. The README states this boundary in a table at the top.
 
 ### Working project
 - [x] Live URL responds 200 and loads
-- [x] 7 tools register in production (verified on the deployed URL, not just locally)
+- [x] 14 CAD tools are present in the deployed production bundle
+- [x] `/shell/` responds 200 and composes 14 CAD tools with 2 shell tools
 - [x] Confirm dialog fires on writes
 - [x] Geometry persists across reload
 - [ ] STEP export verified on the deployed URL
@@ -184,12 +209,16 @@ commit. The README states this boundary in a table at the top.
 - [x] WebMCP registration code present and legible
 
 ### Video
-- [ ] Under 3:00
-- [ ] **Has audio narration** (silent + music does not meet the rules)
+- [x] 2:30 fallback cut exists with audio narration
+- [ ] Replace fallback stills with a live product capture that visibly proves the tool calls
+- [ ] Keep final cut under 3:00
+- [ ] **Verify audio narration end to end** (silent + music does not meet the rules)
 - [ ] Public YouTube
 - [ ] Working product visible in the first 10–15 seconds
 
 ### Devpost
 - [ ] Description pasted
 - [ ] All links filled
+- [ ] Confirm submitter type and residence field values
+- [ ] Re-test in ChatGPT's in-app browser and update the tested-clients answer
 - [ ] Submitted before **2026-09-03 13:00 PDT**

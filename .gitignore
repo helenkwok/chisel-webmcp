@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .vendor/
+.devpost-hackathon-state.json
 *.log
 docs/video/narration-sections/*.aiff
 docs/video/narration.wav

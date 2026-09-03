@@ -24,8 +24,8 @@ Six read tools let it inspect what's actually there — the scene tree, the sele
 
 And now the part that makes this a product rather than a demo. I reload the page — and the agent's work is still here. It's in the undo history and persisted to IndexedDB.
 
-And I can export it as STEP. That's a real manufacturable CAD file. The agent didn't draw a picture of a bracket; it made one.
+The agent can finish the job itself: export to STEP, behind the same approval gate. The result verifies the ISO-10303 envelope, B-rep solids and analytic surfaces before it claims success. That's a real manufacturable CAD file, not a mesh wearing a STEP extension.
 
 [2:10–2:30 — What it is, honestly]
 
-To be straight about what I built: the CAD application is Chili3d, an excellent open-source project I did not write. What I built is the WebMCP integration: fourteen CAD tools, one shared safety gate, and a shell that merges them with another app's tools. We maintain no fork and patch none of Chili3d's application code; its existing plugin system is the integration point. That's the thing I'd want for any app: your app, your agent, no rewrite.
+To be straight about what I built: the CAD application is Chili3d, an excellent open-source project I did not write. What I built is the WebMCP integration: fifteen CAD tools, one shared safety gate, and a shell that merges them with another app's tools. We maintain no fork and patch none of Chili3d's application code; its existing plugin system is the integration point. That's the thing I'd want for any app: your app, your agent, no rewrite.

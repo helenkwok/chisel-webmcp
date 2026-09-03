@@ -19,7 +19,7 @@ then clear the document before the live build.
 ## 0:00–0:15 — The hook, on screen immediately
 
 **On screen:** the finished bracket already visible in the framed CAD app. The shell header reads
-*"16 tools registered across 2 apps"*. Hold for three seconds, then clear the document. Keep the
+*"17 tools registered across 2 apps"*. Hold for three seconds, then clear the document. Keep the
 agent activity panel and shell statistics visible.
 
 **Type the prompt live** (don't paste — it reads as real):
@@ -91,12 +91,15 @@ Agent calls `chisel_get_object` / `chisel_get_document_info`. Show the bounding 
 > And now the part that makes this a product rather than a demo. I reload the page — and the
 > agent's work is still here. It's in the undo history and persisted to IndexedDB.
 
-Then use **File → Export → STEP** (or the download control) and show the `.step` file land.
+Ask the agent to call `chisel_export` with `format: ".step"`. Pause on the second approval dialog,
+approve it, show the `.step` file landing, and show the returned ISO-10303/schema/analytic-surface
+summary.
 
 **Say:**
 
-> And I can export it as STEP. That's a real manufacturable CAD file. The agent didn't draw a
-> picture of a bracket; it made one.
+> The agent can finish the job itself: export to STEP, behind the same approval gate. The result
+> verifies the ISO-10303 envelope, B-rep solids and analytic surfaces before it claims success.
+> That's a real manufacturable CAD file, not a mesh wearing a STEP extension.
 
 ## 2:10–2:30 — What it is, honestly
 
@@ -105,7 +108,7 @@ Then use **File → Export → STEP** (or the download control) and show the `.s
 **Say:**
 
 > To be straight about what I built: the CAD application is Chili3d, an excellent open-source
-> project I did not write. What I built is the WebMCP integration: fourteen CAD tools, one shared
+> project I did not write. What I built is the WebMCP integration: fifteen CAD tools, one shared
 > safety gate, and a shell that merges them with another app's tools. We maintain no fork and
 > patch none of Chili3d's application code; its existing plugin system is the integration point.
 > That's the thing I'd want for any app: your app, your agent, no rewrite.
@@ -116,7 +119,7 @@ Then use **File → Export → STEP** (or the download control) and show the `.s
 
 ## Recording checklist
 
-- [ ] WebMCP flag enabled; shell shows **16 tools registered across 2 apps**
+- [ ] WebMCP flag enabled; shell shows **17 tools registered across 2 apps**
 - [ ] Finished bracket visible in the first 10 seconds, then document cleared for the live build
 - [ ] **Audio narration present** (rules requirement — silent + music is a fail)
 - [ ] Confirm dialog clearly visible at least once, and paused on
@@ -124,4 +127,5 @@ Then use **File → Export → STEP** (or the download control) and show the `.s
 - [ ] Bounding box `[80, 40, 5]` legible
 - [ ] Reload-persistence beat actually shows a reload (address bar / spinner visible)
 - [ ] STEP export lands
+- [ ] Export result shows a valid ISO-10303 envelope and analytic geometry counts
 - [ ] Under 3:00. Upload **public** (not unlisted-only — rules say public)

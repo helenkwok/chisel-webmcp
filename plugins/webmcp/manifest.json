@@ -1,0 +1,8 @@
+{
+    "name": "webmcp",
+    "version": "1.0.0",
+    "description": "Exposes Chili3d's CAD modelling verbs to in-browser AI agents via the WebMCP standard.",
+    "main": "dist/main.js",
+    "author": { "name": "Helen Kwok" },
+    "engines": { "chili3d": ">=0.7" }
+}

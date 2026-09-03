@@ -1,0 +1,14 @@
+{
+    "name": "chisel-webmcp",
+    "version": "1.0.0",
+    "description": "Agentic browser CAD: OpenCascade solid modelling exposed to AI agents via WebMCP. A drop-in plugin for Chili3d.",
+    "type": "module",
+    "license": "MIT",
+    "scripts": {
+        "vendor": "node scripts/vendor.mjs",
+        "build": "node scripts/vendor.mjs",
+        "preview": "npx servitsy -p 8080 dist",
+        "deploy": "npm run build && npx wrangler deploy"
+    },
+    "keywords": ["webmcp", "cad", "opencascade", "ai-agent", "model-context-protocol", "3d"]
+}

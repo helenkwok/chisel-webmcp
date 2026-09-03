@@ -1,0 +1,11 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "chisel-webmcp",
+    "compatibility_date": "2026-09-03",
+    // Static-asset only Worker: no script, just the built Chili3d + Chisel bundle.
+    // single-page-application so deep links fall back to index.html.
+    "assets": {
+        "directory": "./dist",
+        "not_found_handling": "single-page-application"
+    }
+}

@@ -2,6 +2,7 @@ node_modules/
 dist/
 .vendor/
 .wrangler/
+.omx/
 .devpost-hackathon-state.json
 *.log
 docs/video/narration-sections/*.aiff

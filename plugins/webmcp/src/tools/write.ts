@@ -19,7 +19,7 @@
 // and its mirror image. An agent that is lied to compounds the lie.
 
 import type { IApplication, IDocument, INode, IShape, Result } from "@chili3d/core";
-import { EditableShapeNode, Plane, Transaction, XYZ } from "@chili3d/core";
+import { EditableShapeNode, Matrix4, Plane, Transaction, XYZ } from "@chili3d/core";
 import type { ToolDef } from "../gate";
 
 function requireDocument(app: IApplication): IDocument {
@@ -129,8 +129,9 @@ const OPERATION_CORE: ToolDef = {
         required: ["operation"],
         additionalProperties: false,
     },
-    handler: (input: any, app: IApplication) => {
+    handler: async (input: any, app: IApplication) => {
         const doc = requireDocument(app);
+        noteUndoFloor(doc);
         const factory = app.shapeProvider.factory;
         const op = input.operation as string;
         let affected = 0;
@@ -141,7 +142,7 @@ const OPERATION_CORE: ToolDef = {
             switch (op) {
                 case "create_box": {
                     const { dx, dy, dz } = input;
-                    if (!dx || !dy || !dz) throw new Error("create_box requires non-zero dx, dy and dz (mm).");
+                    if (!(dx > 0 && dy > 0 && dz > 0)) throw new Error("create_box requires positive dx, dy and dz (mm).");
                     const solid = unwrap(
                         factory.box(planeAt(input.x, input.y, input.z), dx, dy, dz),
                         `create a ${dx}x${dy}x${dz} box`,
@@ -158,7 +159,7 @@ const OPERATION_CORE: ToolDef = {
                 }
                 case "create_cylinder": {
                     const { radius, dz } = input;
-                    if (!radius || !dz) throw new Error("create_cylinder requires non-zero radius and dz (mm).");
+                    if (!(radius > 0 && dz > 0)) throw new Error("create_cylinder requires positive radius and dz (mm).");
                     const solid = unwrap(
                         factory.cylinder(
                             XYZ.unitZ,
@@ -179,7 +180,7 @@ const OPERATION_CORE: ToolDef = {
                     break;
                 }
                 case "create_sphere": {
-                    if (!input.radius) throw new Error("create_sphere requires a non-zero radius (mm).");
+                    if (!(input.radius > 0)) throw new Error("create_sphere requires a positive radius (mm).");
                     const solid = unwrap(
                         factory.sphere(new XYZ({ x: input.x ?? 0, y: input.y ?? 0, z: input.z ?? 0 }), input.radius),
                         `create a radius-${input.radius} sphere`,
@@ -227,17 +228,18 @@ const OPERATION_CORE: ToolDef = {
                     const node = findNode(doc, input.targetId);
                     const { dx = 0, dy = 0, dz = 0 } = input;
                     if (!dx && !dy && !dz) throw new Error("move requires a non-zero dx, dy or dz.");
+                    // Matrix4.fromTranslation is the kernel's real API; an earlier
+                    // version called a `translation` static that does not exist and
+                    // this tool threw on every call. Verified after the fix by
+                    // reading the bounding box back through chisel_get_object.
                     const visual = node as any;
-                    visual.transform = visual.transform.multiply(
-                        (Plane as any).translation
-                            ? (Plane as any).translation(dx, dy, dz)
-                            : visual.transform.constructor.translation(dx, dy, dz),
-                    );
+                    visual.transform = Matrix4.fromTranslation(dx, dy, dz).multiply(visual.transform);
                     affected++;
                     break;
                 }
                 case "delete": {
-                    const ids: string[] = input.toolIds?.length ? input.toolIds : [input.targetId];
+                    const ids: string[] = input.toolIds?.length ? input.toolIds : input.targetId ? [input.targetId] : [];
+                    if (!ids.length) throw new Error("delete requires targetId or a non-empty toolIds. Nothing was deleted.");
                     for (const id of ids) {
                         const n = findNode(doc, id);
                         n.parent?.remove(n);
@@ -253,7 +255,23 @@ const OPERATION_CORE: ToolDef = {
                     // change a model should be able to retract the change.
                     const hist = doc.history as any;
                     if (!hist?.undo) throw new Error("This document has no undo history available.");
+                    // History.undo() is a silent no-op on an empty stack. Counting it
+                    // as a change would be exactly the cheerful "done" this file says
+                    // it never emits, so the undo depth has to actually decrease.
+                    const before = typeof hist.undoCount === "function" ? hist.undoCount() : undefined;
+                    // Never undo below the depth the document had before this
+                    // session touched it. Undoing further pops the document's
+                    // own initialisation (its default material), after which
+                    // every create fails with "Material not found". Verified live.
+                    const floor = undoFloor(doc, before);
+                    if (before !== undefined && before <= floor) {
+                        throw new Error("Nothing of this session's to undo. Earlier records belong to the document itself or the human; use the app's own Undo for those.");
+                    }
                     hist.undo();
+                    const after = typeof hist.undoCount === "function" ? hist.undoCount() : undefined;
+                    if (before !== undefined && after !== undefined && after >= before) {
+                        throw new Error("Nothing to undo: the document's undo history is empty. No change was made.");
+                    }
                     affected++;
                     break;
                 }
@@ -268,6 +286,10 @@ const OPERATION_CORE: ToolDef = {
                 `Operation "${op}" completed without changing anything. Nothing was created, modified or removed. Do not report this as done — re-check your object ids with chisel_get_scene_tree.`,
             );
         }
+
+        // Persist. Nothing in the host autosaves after a transaction commits, so a
+        // result that says "saved" is only true if this line runs.
+        await doc.save();
 
         // Frame what just changed.
         //
@@ -288,7 +310,7 @@ const OPERATION_CORE: ToolDef = {
             affectedCount: affected,
             createdIds: created,
             removedIds: removed,
-            note: "Change is in the undo history and is saved to IndexedDB — it will survive a page reload. The viewport has been re-framed to show the result.",
+            note: "Saved to IndexedDB (document.save() was called after the change) and recorded in the undo history. The viewport has been re-framed to show the result.",
         };
     },
 };
@@ -423,9 +445,29 @@ export const WRITE_TOOLS: ToolDef[] = [
     op(
         "chisel_undo",
         "Undo the last change",
-        "Undo the most recent change to the document, restoring the previous state exactly. Use it to retract an operation that turned out wrong, including a boolean that consumed solids you wanted back. " +
+        "Undo the most recent change to the document, whoever made it: this pops the top of the shared undo stack, so if the human edited after your last call, their edit is what comes off. Check chisel_get_change_log first. " +
             "It undoes ONE step; call it repeatedly to go further back, and check chisel_get_change_log to see where you are.",
         {},
         [],
     ),
 ];
+
+/**
+ * The undo depth a document had when this session first touched it. Recorded
+ * on first contact so the agent can only retract its own work.
+ */
+const undoFloors = new WeakMap<object, number>();
+function undoFloor(doc: object, current: number | undefined): number {
+    const known = undoFloors.get(doc);
+    if (known !== undefined) return known;
+    const floor = current ?? 0;
+    undoFloors.set(doc, floor);
+    return floor;
+}
+
+/** Called by every write before it changes anything, so the floor is set before the first change. */
+export function noteUndoFloor(doc: any): void {
+    if (undoFloors.has(doc)) return;
+    const n = typeof doc?.history?.undoCount === "function" ? doc.history.undoCount() : 0;
+    undoFloors.set(doc, n);
+}

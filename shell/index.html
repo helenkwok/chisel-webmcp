@@ -64,6 +64,7 @@
   <span class="sub">one WebMCP surface over several web apps</span>
   <div id="status"><span class="dot"></span><span id="statusText">connecting…</span></div>
 </header>
+<a id="source" href="/NOTICE.md" style="position:fixed;left:12px;bottom:10px;z-index:5;color:#9aa8c7;font-size:12px;text-decoration:none">Source &amp; licences: this deployment combines Chili3d (AGPL-3.0, unmodified, commit c5b8047c) with the MIT Chisel plugin · github.com/helenkwok/chisel-webmcp</a>
 
 <main>
   <!--
@@ -139,10 +140,10 @@ function setStatus(text, ok = true) {
 }
 
 /** Ask a framed app to run one of its tools; resolves with its gated result. */
-function invokeInApp(appId, tool, input) {
+function invokeInApp(appId, tool, input, { write = false } = {}) {
   return new Promise((resolve) => {
-    const callId = `${appId}:${++callSeq}`;
-    pending.set(callId, resolve);
+    const callId = crypto.randomUUID();
+    pending.set(callId, { resolve, source: apps.get(appId)?.win ?? frame.contentWindow });
     // Post to the frame that announced this app. The shell hosts several apps,
     // each in its own frame, and an invoke must land in the one that owns the tool.
     const target = apps.get(appId)?.win ?? frame.contentWindow;
@@ -150,12 +151,15 @@ function invokeInApp(appId, tool, input) {
       { protocol: PROTOCOL, type: "invoke", callId, tool, input },
       location.origin,
     );
-    // Never hang the agent forever on an app that went away.
+    // Reads time out. Writes do not: a write is waiting on a human, and telling
+    // the agent "failed" while the dialog is still open invites a retry that
+    // doubles the geometry once the human approves the first one.
+    if (write) return;
     setTimeout(() => {
       if (pending.delete(callId)) {
         resolve({ content: [{ type: "text", text: `Timed out waiting for ${appId} to run ${tool}.` }], isError: true });
       }
-    }, 120000);
+    }, 30000);
   });
 }
 
@@ -258,7 +262,7 @@ function registerCatalogue(appId, appTitle, tools) {
       // cannot obtain an ungated handler — it only ever asks.
       execute: async (input) => {
         toolCalls++;
-        const result = await invokeInApp(appId, t.name, input ?? {});
+        const result = await invokeInApp(appId, t.name, input ?? {}, { write: !!t.write });
         const text = String(result?.content?.[0]?.text ?? "");
         if (/"affectedCount":\s*[1-9]/.test(text)) changeCount++;
         refreshStats();
@@ -271,12 +275,17 @@ function registerCatalogue(appId, appTitle, tools) {
 }
 
 function renderApps() {
-  const rows = [
-    `<div class="app"><span class="dot"></span><span class="name">Chisel Shell</span><span class="count">${SHELL_TOOLS.length} tools</span></div>`,
-    ...[...apps.entries()].map(([id, a]) =>
-      `<div class="app"><span class="dot"></span><span class="name">${a.title}</span><span class="count">${a.tools.length} tools</span></div>`),
-  ];
-  appsEl.innerHTML = rows.join("");
+  // Titles arrive over postMessage; build nodes with textContent, never innerHTML.
+  appsEl.replaceChildren();
+  const row = (title, n) => {
+    const d = document.createElement("div"); d.className = "app";
+    const dot = document.createElement("span"); dot.className = "dot";
+    const name = document.createElement("span"); name.className = "name"; name.textContent = title;
+    const count = document.createElement("span"); count.className = "count"; count.textContent = `${n} tools`;
+    d.append(dot, name, count); return d;
+  };
+  appsEl.append(row("Chisel Shell", SHELL_TOOLS.length));
+  for (const [, a] of apps) appsEl.append(row(a.title, a.tools.length));
 }
 
 // ── Bridge ──────────────────────────────────────────────────────────────────
@@ -287,12 +296,19 @@ window.addEventListener("message", (ev) => {
   if (!m || m.protocol !== PROTOCOL) return;
 
   if (m.type === "catalogue") {
-    apps.set(m.appId, { title: m.appTitle, tools: m.tools, win: ev.source });
+    // An app is bound to the first frame that announced it. A later catalogue
+    // from a different frame is ignored, so a sibling cannot repoint a tool.
+    const known = apps.get(m.appId);
+    if (known && known.win !== ev.source) return;
+    apps.set(m.appId, { title: String(m.appTitle), tools: m.tools, win: ev.source });
     registerCatalogue(m.appId, m.appTitle, m.tools);
     renderApps();
     refreshStats();
   } else if (m.type === "result") {
-    pending.get(m.callId)?.(m.result);
+    const p = pending.get(m.callId);
+    // Only the frame we asked may answer; a sibling cannot forge a result.
+    if (!p || ev.source !== p.source) return;
+    p.resolve(m.result);
     pending.delete(m.callId);
   }
 });
@@ -342,7 +358,7 @@ async function loadFlint() {
     flintState = "loading";
     const [f, v] = await Promise.all([
       import("https://cdn.jsdelivr.net/npm/flint-chart@0.5.1/+esm"),
-      import("https://cdn.jsdelivr.net/npm/vega-embed@6/+esm"),
+      import("https://cdn.jsdelivr.net/npm/vega-embed@6.29.0/+esm"),
     ]);
     flint = f;
     vegaEmbed = v.default ?? v;

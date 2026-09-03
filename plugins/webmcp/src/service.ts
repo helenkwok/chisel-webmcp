@@ -8,7 +8,7 @@
 import type { IApplication, IService } from "@chili3d/core";
 import { ActivityPanel, BOTTOM_OFFSET } from "./activityPanel";
 import { BRIDGE_PROTOCOL, type BridgeToolInfo, isFramed, serveToShell } from "./bridge";
-import { type ConfirmFn, makeGatedExecute, type ToolDef } from "./gate";
+import { type ConfirmFn, makeGatedExecute, serialised, type ToolDef } from "./gate";
 import { EXPORT_TOOLS } from "./tools/export";
 import { MODIFY_TOOLS } from "./tools/modify";
 import { READ_TOOLS } from "./tools/read";
@@ -49,7 +49,7 @@ export class WebMcpService implements IService {
         }
 
         this.controller = new AbortController();
-        const confirm = this.makeConfirm();
+        const confirm = serialised(this.makeConfirm());
         this.panel.mount();
 
         // Build the gated executes ONCE. Both the top-level path and the framed
@@ -95,7 +95,12 @@ export class WebMcpService implements IService {
                 APP_ID,
                 APP_TITLE,
                 catalogue,
-                (tool, input) => gated.get(tool)!(input),
+                async (tool, input) => {
+                    const fn = gated.get(tool);
+                    // An unknown name must answer, or the shell waits out its timeout.
+                    if (!fn) return { content: [{ type: "text", text: `Unknown tool "${tool}" in ${APP_TITLE}.` }], isError: true };
+                    return fn(input);
+                },
                 this.controller.signal,
             );
             this.setBadge(`in shell — ${ALL_TOOLS.length} tools published (${BRIDGE_PROTOCOL})`, true);
@@ -233,7 +238,9 @@ export class WebMcpService implements IService {
                 card.append(head, body, foot);
                 overlay.append(card);
                 document.body.appendChild(overlay);
-                yes.focus();
+                // Decline takes focus. An agent call can land while the human is
+                // typing; the next Enter must never approve a boolean or a delete.
+                no.focus();
             });
     }
 

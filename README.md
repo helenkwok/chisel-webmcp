@@ -27,8 +27,9 @@ one — which is the thing this hackathon is about.
 
 **We did not maintain a fork or patch Chili3d's application code.** Chili3d's `AppBuilder` already
 fetches `<origin>/plugins/plugins.json` at boot and loads what it lists from the same origin.
-`scripts/vendor.mjs` checks out a pinned upstream commit in a build-only staging directory, adds
-our plugin to that documented plugin list, and produces the combined deployable bundle.
+`scripts/vendor.mjs` checks out a pinned upstream commit in a build-only staging directory, appends
+our plugin to upstream's `plugins.json` (its own macro and visual-programming plugins stay listed),
+and produces the combined deployable bundle. No upstream source file is edited.
 
 ```
 chisel-webmcp/                  ← this repo: 100% new work
@@ -47,7 +48,7 @@ chisel-webmcp/                  ← this repo: 100% new work
 
 deployed bundle:
   dist/index.html               ← the shell: one WebMCP surface over several apps  (/)
-  dist/cad/                     ← upstream Chili3d, byte-for-byte                 (/cad/)
+  dist/cad/                     ← upstream Chili3d build, source unmodified        (/cad/)
   dist/cad/plugins/webmcp/      ← our plugin, auto-loaded by Chili3d at boot
 ```
 
@@ -57,8 +58,8 @@ deployed bundle:
 
 The CAD app exposes **17 tools**: six read tools, eight named modelling tools, fillet and chamfer,
 and one gated export tool. The optional
-[`/shell/`](https://chisel-webmcp.helenkwok.workers.dev/) adds two shell-owned read tools,
-giving the top-level agent one 19-tool surface across two apps.
+the shell at [`/`](https://chisel-webmcp.helenkwok.workers.dev/) adds three of its own and hosts
+the showreel's two, giving the top-level agent one 22-tool surface across three apps.
 
 | Tool | |
 |---|---|
@@ -109,11 +110,11 @@ a cheerful "done". This answers the spec's own stated threat — *"a tool can cl
 while changing data"* — and its mirror image, a tool that claims success while changing nothing.
 An agent that is lied to compounds the lie.
 
-And **tool output is capped at ~1500 characters with the truncation announced.** That is a
-prompt-injection control, not cosmetics: a tool result is text the agent reads as context, and in
-a CAD app that text derives from model content authored by whoever made the file — untrusted
-third-party data. Silent truncation is worse than none, because the agent acts on half a picture
-believing it whole.
+And **tool output is capped at 1500 characters, notice included, with the truncation announced.**
+That bounds result volume and stops an agent acting on half a picture believing it whole. It is not
+a defence against prompt injection: model content (object names, file text) still reaches the agent
+verbatim under the cap, which is why every tool is annotated `untrustedContentHint` and why the
+agent must treat what it reads there as data, not instructions.
 
 ## The multi-app shell
 
@@ -145,8 +146,9 @@ Worth saying out loud, because both are true and easy to get wrong:
    [PR #184](https://github.com/webmachinelearning/webmcp/pull/184). Much training data still
    repeats them.
 2. **There is no `unregisterTool()`.** You unregister by aborting an `AbortSignal` you passed in.
-3. **The document must be origin-isolated, and it fails *silently* if not.** Worth checking before
-   you build anything else — especially if your app sets COEP/COOP for WASM threading.
+3. **Do not opt out of origin isolation.** `Origin-Agent-Cluster: ?0` or touching `document.domain`
+   removes `document.modelContext` with no error. COOP/COEP are *not* required: this deployment
+   sets neither and registers fine. Check `window.originAgentCluster` before building anything.
 
 ---
 

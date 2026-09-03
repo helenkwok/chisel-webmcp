@@ -90,6 +90,9 @@ export function serveToShell(
         // Only listen to our own origin. An arbitrary page must not be able to
         // drive the CAD kernel by posting at us.
         if (ev.origin !== window.location.origin) return;
+        // Same origin is not the same as the shell. A sibling frame on this
+        // origin must not be able to invoke this app; only its parent may.
+        if (ev.source !== window.parent) return;
         if (!isBridgeMessage(ev.data)) return;
 
         if (ev.data.type === "hello") {

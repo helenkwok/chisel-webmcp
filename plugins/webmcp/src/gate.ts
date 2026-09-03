@@ -42,19 +42,39 @@ function text(s: string, isError = false): ToolResult {
 /**
  * Cap tool output and ANNOUNCE the truncation.
  *
- * This is a prompt-injection control, not cosmetics. A tool result is text the
- * agent reads as context, and in a CAD app that text is model content authored
- * by whoever made the file — untrusted third-party data. An unbounded result is
- * an unbounded injection surface.
+ * This bounds result volume; it is not a prompt-injection defence. Model content
+ * under the cap still reaches the agent verbatim, which is why every tool is
+ * annotated untrustedContentHint and the sentinel below is neutralised.
  *
  * Silent truncation is worse than none: the agent acts on half a picture
  * believing it whole. So when we cut, we say we cut, and we say by how much.
  */
+const SENTINEL = "[TRUNCATED by Chisel:";
+
 export function cap(s: string, limit = OUTPUT_CAP): string {
-    if (s.length <= limit) return s;
-    const kept = s.slice(0, limit);
-    const dropped = s.length - limit;
-    return `${kept}\n\n[TRUNCATED by Chisel: ${dropped} of ${s.length} characters were withheld. This result is INCOMPLETE — narrow your query (e.g. pass a filter or a smaller limit) rather than reasoning from this partial view.]`;
+    // Model content could contain the sentinel itself; neutralise it so a file
+    // cannot forge a "truncated" notice to the agent.
+    const clean = s.split(SENTINEL).join("[truncated-by-chisel:");
+    if (clean.length <= limit) return clean;
+    const notice = (dropped: number) =>
+        `\n\n${SENTINEL} ${dropped} of ${clean.length} characters were withheld. This result is INCOMPLETE — narrow your query (e.g. pass a filter or a smaller limit) rather than reasoning from this partial view.]`;
+    // The notice counts against the limit; the total never exceeds it.
+    const room = Math.max(0, limit - notice(clean.length).length);
+    return clean.slice(0, room) + notice(clean.length - room);
+}
+
+/**
+ * Two writes arriving together must not stack two full-screen dialogs, because
+ * approving the one on top is not consent for the one underneath. Confirms run
+ * one at a time, in order.
+ */
+let confirmChain: Promise<unknown> = Promise.resolve();
+export function serialised(confirm: ConfirmFn): ConfirmFn {
+    return (summary) => {
+        const next = confirmChain.then(() => confirm(summary));
+        confirmChain = next.catch(() => false);
+        return next;
+    };
 }
 
 /** Renders a handler's return value as the text an agent will read. */

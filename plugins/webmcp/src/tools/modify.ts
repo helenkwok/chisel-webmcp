@@ -16,6 +16,7 @@
 import type { IApplication, IDocument, INode, IShape, Result } from "@chili3d/core";
 import { EditableShapeNode, ShapeTypes, Transaction } from "@chili3d/core";
 import type { ToolDef } from "../gate";
+import { noteUndoFloor } from "./write";
 
 function requireDocument(app: IApplication): IDocument {
     const doc = app.activeView?.document ?? [...app.documents][0];
@@ -87,7 +88,7 @@ function unwrapModify(
     return v as IShape;
 }
 
-function applyEdgeModify(
+async function applyEdgeModify(
     input: { targetId: string },
     app: IApplication,
     operation: "fillet" | "chamfer",
@@ -99,6 +100,7 @@ function applyEdgeModify(
     }
 
     const doc = requireDocument(app);
+    noteUndoFloor(doc);
     const factory = app.shapeProvider.factory;
     const target = findNode(doc, input.targetId);
     const shape = shapeOf(target);
@@ -143,6 +145,7 @@ function applyEdgeModify(
         /* the geometry is correct even if the camera didn't move */
     }
 
+    await doc.save();
     return {
         operation,
         affectedCount: affected,
@@ -150,7 +153,7 @@ function applyEdgeModify(
         removedIds: removed,
         edgesModified: edges.length,
         [amountLabel]: amount,
-        note: "Change is in the undo history and is saved to IndexedDB — it will survive a page reload. The viewport has been re-framed to show the result.",
+        note: "Saved to IndexedDB (document.save() was called after the change) and recorded in the undo history.",
     };
 }
 

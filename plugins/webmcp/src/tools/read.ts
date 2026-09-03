@@ -218,7 +218,11 @@ export const READ_TOOLS: ToolDef[] = [
             return {
                 ...summarize(node, true),
                 materialId: (node as any)?.materialId,
-                translation: t ? [round(t.position?.x ?? 0), round(t.position?.y ?? 0), round(t.position?.z ?? 0)] : undefined,
+                // Matrix4 exposes translationPart(), not .position. The bounding box
+                // above is the shape's own (local) box; this is where it sits.
+                translationMm: t?.translationPart
+                    ? (() => { const q = t.translationPart(); return [round(q.x), round(q.y), round(q.z)]; })()
+                    : undefined,
             };
         },
     },

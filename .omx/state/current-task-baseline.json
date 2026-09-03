@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "branch_name": "main",
+      "worktree_path": "/Users/helen/workspace/chisel-webmcp",
+      "status": "active",
+      "created_at": "2026-09-03T13:16:17.313Z",
+      "updated_at": "2026-09-03T13:16:17.313Z"
+    }
+  ]
+}

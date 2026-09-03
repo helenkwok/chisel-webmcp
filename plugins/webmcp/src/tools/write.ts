@@ -1,17 +1,22 @@
 // Chisel — WebMCP agent surface for Chili3d. MIT licensed. See LICENSE.
 //
-// THE SINGLE WRITE CHOKEPOINT.
+// THE WRITE TOOLS, AND THE ONE PLACE THEY ARE ENFORCED.
 //
-// There is exactly ONE mutating tool. Every modelling operation an agent can
-// perform goes through it, which means every mutation passes the same in-page
-// confirm and produces the same audit line. Ten open write verbs would be a
-// larger surface and a smaller amount of judgement.
+// Seven named tools with narrow schemas, all funnelling into one operation core
+// and all registered through one gate. The safety property is NOT "there is
+// only one write tool" — that claim was wrong, and an external reviewer was
+// right to say so. An operation enum is not a sandbox; seven operations behind
+// a dispatcher are still seven operations.
 //
-// The other rule here is the honest affected count: an operation that changed
-// nothing returns isError, never a cheerful "done". This directly answers the
-// WebMCP spec's own stated threat — "a tool can claim to be read-only while
-// changing data" — and its mirror image, a tool that claims success while
-// changing nothing. An agent that is lied to compounds the lie.
+// The property that is actually true: there is exactly ONE place where a write
+// becomes callable, `makeGatedExecute` in gate.ts, and no export here produces
+// a handler that skips it. Add an eighth verb tomorrow and it is gated because
+// there is no other way to register it.
+//
+// The rest of the discipline is honesty about outcomes: an operation that
+// changed nothing returns isError, never a cheerful "done". That answers the
+// spec's own threat — "a tool can claim to be read-only while changing data" —
+// and its mirror image. An agent that is lied to compounds the lie.
 
 import type { IApplication, IDocument, INode, IShape, Result } from "@chili3d/core";
 import { EditableShapeNode, Plane, Transaction, XYZ } from "@chili3d/core";
@@ -64,7 +69,24 @@ function planeAt(x = 0, y = 0, z = 0): Plane {
     return new Plane({ origin: new XYZ({ x, y, z }), normal: XYZ.unitZ, xvec: XYZ.unitX } as any);
 }
 
-export const APPLY_OPERATION: ToolDef = {
+/**
+ * The operation core. Every write tool below funnels into this one function,
+ * and every one of them is registered through the same gate.
+ *
+ * An earlier version of this file exposed a SINGLE `apply_operation` tool with
+ * an operation enum, and argued that one verb was safer than seven. An external
+ * reviewer took that apart correctly: an enum is not a sandbox. Seven operations
+ * behind a dispatcher are seven operations, in one origin and one JS heap, and
+ * the actual control was always the gate at the registration boundary — not the
+ * tool count. Worse, discriminated unions are measurably harder for a model to
+ * call correctly than small tools with tight schemas, so the "safer" design was
+ * also the one more likely to fail live.
+ *
+ * So: named tools with narrow schemas, ONE shared enforcement point. The safety
+ * claim is now about where enforcement lives, which is the claim that was ever
+ * true.
+ */
+const OPERATION_CORE: ToolDef = {
     name: "chisel_apply_operation",
     title: "Apply a modelling operation",
     write: true,
@@ -85,6 +107,7 @@ export const APPLY_OPERATION: ToolDef = {
                     "boolean_union",
                     "move",
                     "delete",
+                    "undo",
                 ],
                 description: "Which modelling operation to perform.",
             },
@@ -223,6 +246,17 @@ export const APPLY_OPERATION: ToolDef = {
                     }
                     break;
                 }
+                case "undo": {
+                    // Grok's review named this gap: without undo the agent can
+                    // create a wrong solid and has no way back, so the only
+                    // recovery is a human reaching for the UI. An agent that can
+                    // change a model should be able to retract the change.
+                    const hist = doc.history as any;
+                    if (!hist?.undo) throw new Error("This document has no undo history available.");
+                    hist.undo();
+                    affected++;
+                    break;
+                }
                 default:
                     throw new Error(`Unknown operation "${op}".`);
             }
@@ -258,3 +292,131 @@ export const APPLY_OPERATION: ToolDef = {
         };
     },
 };
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Named write tools.
+//
+// Each one is a thin, tightly-schema'd face over OPERATION_CORE. A model picks
+// between small tools far more reliably than it fills a discriminated union, so
+// this is both the safer design AND the one less likely to fail on camera.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const num = (description: string) => ({ type: "number", description });
+const ids = (description: string) => ({ type: "array", items: { type: "string" }, description });
+
+/** Builds a write tool that fixes `operation` and forwards everything else. */
+function op(
+    name: string,
+    title: string,
+    description: string,
+    properties: Record<string, unknown>,
+    required: string[],
+): ToolDef {
+    return {
+        name,
+        title,
+        description,
+        write: true,
+        inputSchema: { type: "object", properties, required, additionalProperties: false },
+        // Same core, same gate. The only thing a named tool adds is a better schema.
+        handler: (input: any, app: IApplication) =>
+            OPERATION_CORE.handler({ ...input, operation: name.replace(/^chisel_/, "") }, app),
+    };
+}
+
+export const WRITE_TOOLS: ToolDef[] = [
+    op(
+        "chisel_create_box",
+        "Create a box",
+        "Create a rectangular solid box. All dimensions in millimetres. The lower corner sits at (x, y, z), which default to the origin.",
+        {
+            name: { type: "string", description: "Name for the new object." },
+            x: num("Lower-corner X in mm. Default 0."),
+            y: num("Lower-corner Y in mm. Default 0."),
+            z: num("Lower-corner Z in mm. Default 0."),
+            dx: num("Size along X in mm."),
+            dy: num("Size along Y in mm."),
+            dz: num("Size along Z in mm."),
+        },
+        ["dx", "dy", "dz"],
+    ),
+    op(
+        "chisel_create_cylinder",
+        "Create a cylinder",
+        "Create a cylindrical solid along the Z axis, centred on (x, y) with its base at z. Use this for holes: make the cylinder, then subtract it with chisel_boolean_cut. Make it slightly taller than the plate and start it slightly below, so the cut passes cleanly through.",
+        {
+            name: { type: "string", description: "Name for the new object." },
+            x: num("Centre X in mm. Default 0."),
+            y: num("Centre Y in mm. Default 0."),
+            z: num("Base Z in mm. Default 0."),
+            radius: num("Radius in mm. For an M6 clearance hole use 3."),
+            dz: num("Height in mm."),
+        },
+        ["radius", "dz"],
+    ),
+    op(
+        "chisel_create_sphere",
+        "Create a sphere",
+        "Create a spherical solid centred on (x, y, z). Dimensions in millimetres.",
+        {
+            name: { type: "string", description: "Name for the new object." },
+            x: num("Centre X in mm. Default 0."),
+            y: num("Centre Y in mm. Default 0."),
+            z: num("Centre Z in mm. Default 0."),
+            radius: num("Radius in mm."),
+        },
+        ["radius"],
+    ),
+    op(
+        "chisel_boolean_cut",
+        "Subtract solids",
+        "Subtract one or more tool solids FROM a target solid — this is how you make holes and pockets. The target and every tool are consumed and replaced by the single resulting solid.",
+        {
+            name: { type: "string", description: "Name for the resulting solid. Defaults to the target's name." },
+            targetId: { type: "string", description: "Id of the solid to cut material out of." },
+            toolIds: ids("Ids of the solids to subtract. These are consumed."),
+        },
+        ["targetId", "toolIds"],
+    ),
+    op(
+        "chisel_boolean_union",
+        "Fuse solids",
+        "Fuse a target solid together with one or more other solids into a single solid. All operands are consumed.",
+        {
+            name: { type: "string", description: "Name for the resulting solid." },
+            targetId: { type: "string", description: "Id of the first solid." },
+            toolIds: ids("Ids of the solids to fuse into it. These are consumed."),
+        },
+        ["targetId", "toolIds"],
+    ),
+    op(
+        "chisel_move",
+        "Move an object",
+        "Translate an object by a delta in millimetres.",
+        {
+            targetId: { type: "string", description: "Id of the object to move." },
+            dx: num("Delta X in mm."),
+            dy: num("Delta Y in mm."),
+            dz: num("Delta Z in mm."),
+        },
+        ["targetId"],
+    ),
+    op(
+        "chisel_delete",
+        "Delete objects",
+        "Permanently remove one or more objects from the document. Prefer chisel_undo if you are reversing your own last change.",
+        {
+            targetId: { type: "string", description: "Id of a single object to delete." },
+            toolIds: ids("Ids of several objects to delete."),
+        },
+        [],
+    ),
+    op(
+        "chisel_undo",
+        "Undo the last change",
+        "Undo the most recent change to the document. Use this to retract an operation you just made that turned out wrong, rather than trying to delete your way back to the previous state.",
+        {},
+        [],
+    ),
+];

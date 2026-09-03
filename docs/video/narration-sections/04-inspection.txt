@@ -1,0 +1,1 @@
+Six read tools let it inspect what's actually there — the scene tree, the selection, an object's real bounding box. Eighty by forty by five. It's not guessing from the DOM; there is no DOM for a solid. This is exactly the gap WebMCP exists to close.

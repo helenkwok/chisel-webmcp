@@ -1,0 +1,3 @@
+And now the part that makes this a product rather than a demo. I reload the page — and the agent's work is still here. It's in the undo history and persisted to IndexedDB.
+
+And I can export it as STEP. That's a real manufacturable CAD file. The agent didn't draw a picture of a bracket; it made one.

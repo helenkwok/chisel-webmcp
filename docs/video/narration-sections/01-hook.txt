@@ -1,0 +1,1 @@
+This is a real CAD kernel — OpenCascade, compiled to WebAssembly, running in a browser tab. I'm going to ask an AI agent to build a part in it. Not move a mesh around. Build a solid.

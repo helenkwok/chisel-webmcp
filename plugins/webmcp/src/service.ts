@@ -6,15 +6,21 @@
 // WebMCP surface hangs off this one service.
 
 import type { IApplication, IService } from "@chili3d/core";
+import { ActivityPanel, BOTTOM_OFFSET } from "./activityPanel";
+import { BRIDGE_PROTOCOL, type BridgeToolInfo, isFramed, serveToShell } from "./bridge";
 import { type ConfirmFn, makeGatedExecute, type ToolDef } from "./gate";
 import { READ_TOOLS } from "./tools/read";
-import { APPLY_OPERATION } from "./tools/write";
+import { WRITE_TOOLS } from "./tools/write";
 
-const ALL_TOOLS: ToolDef[] = [...READ_TOOLS, APPLY_OPERATION];
+const ALL_TOOLS: ToolDef[] = [...READ_TOOLS, ...WRITE_TOOLS];
+
+export const APP_ID = "chisel-cad";
+export const APP_TITLE = "Chisel CAD";
 
 export class WebMcpService implements IService {
     private app?: IApplication;
     private controller?: AbortController;
+    private readonly panel = new ActivityPanel();
     /** Every agent call, for the on-screen activity log. */
     readonly log: { time: string; tool: string; detail: string }[] = [];
 
@@ -41,6 +47,52 @@ export class WebMcpService implements IService {
 
         this.controller = new AbortController();
         const confirm = this.makeConfirm();
+        this.panel.mount();
+
+        // Build the gated executes ONCE. Both the top-level path and the framed
+        // path below use these same functions — the bridge forwards, it never
+        // constructs an alternative handler.
+        const gated = new Map<string, (input: Record<string, unknown>) => Promise<unknown>>();
+        for (const def of ALL_TOOLS) {
+            const execute = makeGatedExecute(def, app, confirm);
+            gated.set(def.name, async (input) => {
+                const started = performance.now();
+                this.panel.logCall({ tool: def.name, input, phase: "requested" });
+                const result: any = await execute(input);
+                const detail = String(result?.content?.[0]?.text ?? "");
+                this.panel.logCall({
+                    tool: def.name,
+                    input,
+                    phase: result?.isError ? "error" : "ok",
+                    detail: summariseForPanel(detail),
+                    durationMs: Math.round(performance.now() - started),
+                });
+                return result;
+            });
+        }
+
+        // If we are inside a shell, publish the catalogue upward instead of
+        // registering here — an agent talks to the TOP-LEVEL document, so a
+        // registration in this frame would not be the surface it sees.
+        if (isFramed()) {
+            const catalogue: BridgeToolInfo[] = ALL_TOOLS.map((d) => ({
+                name: d.name,
+                title: d.title,
+                description: d.description,
+                inputSchema: d.inputSchema,
+                write: !!d.write,
+            }));
+            serveToShell(
+                APP_ID,
+                APP_TITLE,
+                catalogue,
+                (tool, input) => gated.get(tool)!(input),
+                this.controller.signal,
+            );
+            this.setBadge(`in shell — ${ALL_TOOLS.length} tools published (${BRIDGE_PROTOCOL})`, true);
+            void this.ensureDocument(app);
+            return;
+        }
 
         for (const def of ALL_TOOLS) {
             mc.registerTool(
@@ -57,7 +109,7 @@ export class WebMcpService implements IService {
                         destructiveHint: !!def.write,
                         untrustedContentHint: true,
                     },
-                    execute: makeGatedExecute(def, app, confirm),
+                    execute: gated.get(def.name)!,
                 },
                 { signal: this.controller.signal },
             );
@@ -96,6 +148,7 @@ export class WebMcpService implements IService {
         // signal you passed to registerTool.
         this.controller?.abort();
         this.controller = undefined;
+        this.panel.unmount();
         this.badge?.remove();
         this.badge = undefined;
     }
@@ -177,6 +230,12 @@ export class WebMcpService implements IService {
 
     private record(kind: string, detail: string) {
         this.log.push({ time: new Date().toLocaleTimeString(), tool: kind, detail });
+        this.panel.logCall({
+            tool: detail.split("(")[0] || "write",
+            input: {},
+            phase: kind === "approved" ? "approved" : "declined",
+            detail: kind === "approved" ? "human approved" : "human declined — handler never ran",
+        });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -190,20 +249,34 @@ export class WebMcpService implements IService {
         this.badge?.remove();
         const el = document.createElement("div");
         el.setAttribute("data-chisel-badge", "");
+        // BOTTOM_OFFSET clears Chili3d's own 25px status bar; anchoring at 12px
+        // put this behind it. Light, tinted toward the host's blue, so it reads
+        // as part of the app rather than a widget someone bolted on.
         el.style.cssText = [
-            "position:fixed;left:12px;bottom:12px;z-index:2147483646",
+            `position:fixed;left:12px;bottom:${BOTTOM_OFFSET}px;z-index:2147483646`,
             "display:flex;align-items:center;gap:8px",
-            "padding:7px 12px;border-radius:999px",
-            `background:${ok ? "#065f46" : "#7c2d12"};color:#fff`,
-            "font:12px/1 ui-sans-serif,system-ui,sans-serif;font-weight:600",
-            "box-shadow:0 4px 16px rgba(0,0,0,.25);pointer-events:none",
+            "padding:8px 13px;border-radius:8px",
+            "background:oklch(99% 0.004 255);color:oklch(28% 0.02 255)",
+            `border:1px solid ${ok ? "oklch(88% 0.05 155)" : "oklch(86% 0.07 75)"}`,
+            "box-shadow:0 8px 28px oklch(28% 0.02 255 / .16)",
+            "font:12.5px/1.45 ui-sans-serif,system-ui,-apple-system,sans-serif;font-weight:600",
+            "pointer-events:none",
         ].join(";");
         const dot = document.createElement("span");
-        dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${ok ? "#34d399" : "#fdba74"}`;
+        dot.style.cssText =
+            `width:7px;height:7px;border-radius:50%;flex:none;background:${ok ? "oklch(52% 0.14 155)" : "oklch(62% 0.15 75)"}`;
         const label = document.createElement("span");
         label.textContent = `Chisel · ${message}`;
         el.append(dot, label);
         document.body.appendChild(el);
         this.badge = el;
     }
+}
+
+/** Keeps the on-screen log readable: one line, the numbers that matter. */
+function summariseForPanel(text: string): string {
+    const m = text.match(/"affectedCount":\s*(\d+)/);
+    if (m) return `affectedCount ${m[1]}`;
+    const first = text.split("\n").find((l) => l.trim().length) ?? "";
+    return first.slice(0, 90);
 }

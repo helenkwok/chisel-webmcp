@@ -2,3 +2,6 @@ node_modules/
 dist/
 .vendor/
 *.log
+docs/video/narration-sections/*.aiff
+docs/video/narration.wav
+docs/video/qa/

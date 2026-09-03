@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chisel Shell — one agent surface over several web apps</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#141b31; --line:#26304d; --ink:#e8edf7; --muted:#9aa8c7;
+    --accent:#4f8cff; --ok:#34d399; --warn:#fbbf24;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--ink); overflow:hidden;
+    font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  header{
+    display:flex;align-items:center;gap:14px;padding:10px 16px;
+    border-bottom:1px solid var(--line);background:#0e142a;
+  }
+  header h1{font-size:14px;margin:0;font-weight:700;letter-spacing:.2px}
+  header .sub{color:var(--muted);font-size:12.5px}
+  #status{
+    margin-left:auto;display:flex;align-items:center;gap:8px;
+    font-size:12px;font-weight:600;padding:6px 11px;border-radius:999px;
+    background:#0c2f24;color:#c9f5e4;border:1px solid #17513d;
+  }
+  #status .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  #status.bad{background:#3a1b12;color:#ffd9c7;border-color:#6b2c17}
+  #status.bad .dot{background:var(--warn)}
+
+  main{display:grid;grid-template-columns:1fr 380px;height:calc(100% - 49px)}
+  #cad{border:0;width:100%;height:100%;background:#8a8a8a}
+  aside{border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+  section{border-bottom:1px solid var(--line);padding:14px 16px;min-height:0}
+  section h2{
+    margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--muted);
+  }
+  .apps{display:flex;flex-direction:column;gap:8px}
+  .app{
+    display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;
+    background:var(--panel);border:1px solid var(--line);
+  }
+  .app .name{font-weight:650}
+  .app .count{margin-left:auto;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+  .app .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+
+  #stats{flex:1;overflow:auto}
+  #chart{width:100%;height:150px;display:block}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 10px}
+  .kpi .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+  .kpi .k{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+  .empty{color:var(--muted);font-size:12.5px;padding:6px 0}
+  code{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#cfe0ff}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Chisel Shell</h1>
+  <span class="sub">one WebMCP surface over several web apps</span>
+  <div id="status"><span class="dot"></span><span id="statusText">connecting…</span></div>
+</header>
+
+<main>
+  <!--
+    The CAD app, unmodified, in a same-origin frame. It publishes its tool
+    catalogue up to this document over postMessage; this page is what the agent
+    actually talks to.
+  -->
+  <iframe id="cad" src="/" title="Chisel CAD"></iframe>
+
+  <aside>
+    <section>
+      <h2>Connected apps</h2>
+      <div class="apps" id="apps"><div class="empty">Waiting for an app to announce itself…</div></div>
+    </section>
+
+    <section id="stats">
+      <h2>Model statistics <span style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0">— a second app, also agent-callable</span></h2>
+      <div class="kpis">
+        <div class="kpi"><div class="v" id="kObjects">—</div><div class="k">Objects</div></div>
+        <div class="kpi"><div class="v" id="kCalls">0</div><div class="k">Tool calls</div></div>
+        <div class="kpi"><div class="v" id="kChanges">0</div><div class="k">Changes</div></div>
+      </div>
+      <svg id="chart" viewBox="0 0 360 150" preserveAspectRatio="none" role="img"
+           aria-label="Objects in the CAD document over time"></svg>
+      <div class="empty" id="chartNote">Chart updates as the agent changes the model.</div>
+    </section>
+  </aside>
+</main>
+
+<script type="module">
+// ─────────────────────────────────────────────────────────────────────────────
+// Chisel Shell — MIT licensed. See LICENSE.
+//
+// WHY THIS EXISTS
+//
+// WebMCP tools are registered on a *document*, and an agent talks to the
+// TOP-LEVEL document. A tool registered inside an iframe is therefore not the
+// surface the agent sees. That sounds like a limitation; it is actually the
+// most interesting property of the standard.
+//
+// It means a shell page can host SEVERAL web apps and present ONE merged tool
+// surface over all of them. The agent gets a single vocabulary; each app keeps
+// its own code, its own origin-local state, and — importantly — its own consent
+// UI, because the confirm dialog still renders inside the app's own frame where
+// a human can see what they are approving.
+//
+// This page knows nothing about CAD at compile time. It registers whatever
+// catalogue an app announces. Any app that speaks the four bridge messages can
+// be dropped in beside the CAD frame and its verbs appear to the agent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PROTOCOL = "chisel-webmcp/1";
+const frame = document.getElementById("cad");
+const appsEl = document.getElementById("apps");
+const statusEl = document.getElementById("status");
+const statusText = document.getElementById("statusText");
+
+const apps = new Map();           // appId -> { title, tools }
+const pending = new Map();        // callId -> resolve
+let callSeq = 0;
+let toolCalls = 0, changeCount = 0;
+const history = [];               // object-count samples, for the chart
+
+function setStatus(text, ok = true) {
+  statusText.textContent = text;
+  statusEl.classList.toggle("bad", !ok);
+}
+
+/** Ask a framed app to run one of its tools; resolves with its gated result. */
+function invokeInApp(appId, tool, input) {
+  return new Promise((resolve) => {
+    const callId = `${appId}:${++callSeq}`;
+    pending.set(callId, resolve);
+    frame.contentWindow.postMessage(
+      { protocol: PROTOCOL, type: "invoke", callId, tool, input },
+      location.origin,
+    );
+    // Never hang the agent forever on an app that went away.
+    setTimeout(() => {
+      if (pending.delete(callId)) {
+        resolve({ content: [{ type: "text", text: `Timed out waiting for ${appId} to run ${tool}.` }], isError: true });
+      }
+    }, 120000);
+  });
+}
+
+// ── The shell's OWN tools. This is the second app: statistics about the model,
+//    served by the shell itself rather than by the CAD frame. It exists to prove
+//    the surface really is merged across apps rather than proxied from one.
+const SHELL_TOOLS = [
+  {
+    name: "shell_list_apps",
+    title: "List connected apps",
+    description:
+      "List the web apps currently connected to this shell and how many tools each one contributes. Use this to understand what you can do here.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true },
+    execute: async () => ({
+      content: [{
+        type: "text",
+        text: JSON.stringify(
+          [...apps.entries()].map(([id, a]) => ({ appId: id, title: a.title, toolCount: a.tools.length })),
+          null, 1,
+        ),
+      }],
+    }),
+  },
+  {
+    name: "shell_get_session_stats",
+    title: "Get session statistics",
+    description:
+      "Statistics for this shell session: how many tool calls have been made, how many changed the model, and the history of object counts. Use it to summarise what you have done for the user.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true },
+    execute: async () => ({
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          connectedApps: apps.size,
+          toolCalls,
+          changesApplied: changeCount,
+          objectCountHistory: history.slice(-40),
+        }, null, 1),
+      }],
+    }),
+  },
+];
+
+// ── Registration ────────────────────────────────────────────────────────────
+
+const mc = document.modelContext;
+const registered = new Set();
+
+if (!mc?.registerTool) {
+  setStatus("WebMCP unavailable — enable chrome://flags/#enable-webmcp-testing", false);
+} else {
+  for (const t of SHELL_TOOLS) { mc.registerTool(t); registered.add(t.name); }
+  setStatus(`${registered.size} tools registered`);
+}
+
+function registerCatalogue(appId, appTitle, tools) {
+  if (!mc?.registerTool) return;
+  for (const t of tools) {
+    if (registered.has(t.name)) continue;   // registerTool throws on a duplicate name
+    mc.registerTool({
+      name: t.name,
+      title: t.title,
+      description: `[${appTitle}] ${t.description}`,
+      inputSchema: t.inputSchema,
+      annotations: {
+        readOnlyHint: !t.write,
+        destructiveHint: !!t.write,
+        untrustedContentHint: true,
+      },
+      // Forward into the app. The app re-applies its own gate, so this shell
+      // cannot obtain an ungated handler — it only ever asks.
+      execute: async (input) => {
+        toolCalls++;
+        const result = await invokeInApp(appId, t.name, input ?? {});
+        const text = String(result?.content?.[0]?.text ?? "");
+        if (/"affectedCount":\s*[1-9]/.test(text)) changeCount++;
+        refreshStats();
+        return result;
+      },
+    });
+    registered.add(t.name);
+  }
+  setStatus(`${registered.size} tools registered across ${apps.size + 1} apps`);
+}
+
+function renderApps() {
+  const rows = [
+    `<div class="app"><span class="dot"></span><span class="name">Chisel Shell</span><span class="count">${SHELL_TOOLS.length} tools</span></div>`,
+    ...[...apps.entries()].map(([id, a]) =>
+      `<div class="app"><span class="dot"></span><span class="name">${a.title}</span><span class="count">${a.tools.length} tools</span></div>`),
+  ];
+  appsEl.innerHTML = rows.join("");
+}
+
+// ── Bridge ──────────────────────────────────────────────────────────────────
+
+window.addEventListener("message", (ev) => {
+  if (ev.origin !== location.origin) return;              // same-origin only
+  const m = ev.data;
+  if (!m || m.protocol !== PROTOCOL) return;
+
+  if (m.type === "catalogue") {
+    apps.set(m.appId, { title: m.appTitle, tools: m.tools });
+    registerCatalogue(m.appId, m.appTitle, m.tools);
+    renderApps();
+    refreshStats();
+  } else if (m.type === "result") {
+    pending.get(m.callId)?.(m.result);
+    pending.delete(m.callId);
+  }
+});
+
+// The app may have loaded before us; say hello so it re-announces.
+frame.addEventListener("load", () => {
+  frame.contentWindow.postMessage({ protocol: PROTOCOL, type: "hello" }, location.origin);
+});
+
+// ── Statistics panel ────────────────────────────────────────────────────────
+
+async function refreshStats() {
+  document.getElementById("kCalls").textContent = toolCalls;
+  document.getElementById("kChanges").textContent = changeCount;
+
+  const cad = [...apps.keys()][0];
+  if (!cad) return;
+  const res = await invokeInApp(cad, "chisel_get_document_info", {});
+  const text = String(res?.content?.[0]?.text ?? "");
+  const m = text.match(/"objectCount":\s*(\d+)/);
+  if (!m) return;
+  const n = Number(m[1]);
+  document.getElementById("kObjects").textContent = n;
+  history.push(n);
+  drawChart();
+}
+
+/** A small sparkline. Inline SVG so the shell ships zero dependencies. */
+function drawChart() {
+  const svg = document.getElementById("chart");
+  const W = 360, H = 150, pad = 8;
+  if (history.length < 2) { svg.innerHTML = ""; return; }
+  const max = Math.max(2, ...history);
+  const step = (W - pad * 2) / (history.length - 1);
+  const pts = history.map((v, i) => [pad + i * step, H - pad - (v / max) * (H - pad * 2)]);
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const area = `${line} L${pts.at(-1)[0].toFixed(1)},${H - pad} L${pad},${H - pad} Z`;
+  svg.innerHTML =
+    `<path d="${area}" fill="rgba(79,140,255,.18)"/>` +
+    `<path d="${line}" fill="none" stroke="#4f8cff" stroke-width="2" stroke-linejoin="round"/>` +
+    pts.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.5" fill="#4f8cff"/>`).join("");
+  document.getElementById("chartNote").textContent =
+    `Objects in the document over ${history.length} samples (peak ${max}).`;
+}
+
+renderApps();
+</script>
+</body>
+</html>

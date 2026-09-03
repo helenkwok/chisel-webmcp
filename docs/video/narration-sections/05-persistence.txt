@@ -1,3 +1,1 @@
-And now the part that makes this a product rather than a demo. I reload the page — and the agent's work is still here. It's in the undo history and persisted to IndexedDB.
-
-The agent can finish the job itself: export to STEP, behind the same approval gate. The result verifies the ISO-10303 envelope, B-rep solids and analytic surfaces before it claims success. That's a real manufacturable CAD file, not a mesh wearing a STEP extension.
+Now I save the model to IndexedDB, reload, and reopen it by id. The bracket is still there. Then the agent exports STEP behind the same approval gate. The result verifies a valid ISO envelope, a real B-rep solid, six analytic planes, and two cylindrical surfaces.

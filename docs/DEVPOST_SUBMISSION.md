@@ -222,12 +222,13 @@ do not patch its application code. The README states this boundary in a table at
 - [x] WebMCP registration code present and legible
 
 ### Video
-- [x] 2:30 fallback cut exists with audio narration
-- [ ] Replace fallback stills with a live product capture that visibly proves the tool calls
-- [ ] Keep final cut under 3:00
-- [ ] **Verify audio narration end to end** (silent + music does not meet the rules)
+- [x] Live browser/CDP product capture visibly proves the tool calls
+- [x] Final cut is exactly 2:30 with stereo AAC narration
+- [x] Persistence narration matches the demonstrated save/reload/reopen flow
+- [x] Spoken closing is tool-count-neutral so later tool additions do not contradict it
+- [ ] **Watch the final file with sound end to end**
 - [ ] Public YouTube
-- [ ] Working product visible in the first 10–15 seconds
+- [x] Working product visible in the first 10–15 seconds
 
 ### Devpost
 - [ ] Description pasted

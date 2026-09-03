@@ -88,8 +88,7 @@ Agent calls `chisel_get_object` / `chisel_get_document_info`. Show the bounding 
 
 **Say:**
 
-> And now the part that makes this a product rather than a demo. I reload the page — and the
-> agent's work is still here. It's in the undo history and persisted to IndexedDB.
+> Now I save the model to IndexedDB, reload, and reopen it by id. The bracket is still there.
 
 Ask the agent to call `chisel_export` with `format: ".step"`. Pause on the second approval dialog,
 approve it, show the `.step` file landing, and show the returned ISO-10303/schema/analytic-surface
@@ -97,9 +96,8 @@ summary.
 
 **Say:**
 
-> The agent can finish the job itself: export to STEP, behind the same approval gate. The result
-> verifies the ISO-10303 envelope, B-rep solids and analytic surfaces before it claims success.
-> That's a real manufacturable CAD file, not a mesh wearing a STEP extension.
+> Then the agent exports STEP behind the same approval gate. The result verifies a valid ISO
+> envelope, a real B-rep solid, six analytic planes, and two cylindrical surfaces.
 
 ## 2:10–2:30 — What it is, honestly
 
@@ -107,11 +105,9 @@ summary.
 
 **Say:**
 
-> To be straight about what I built: the CAD application is Chili3d, an excellent open-source
-> project I did not write. What I built is the WebMCP integration: seventeen CAD tools, one shared
-> safety gate, and a shell that merges them with another app's tools. We maintain no fork and
-> patch none of Chili3d's application code; its existing plugin system is the integration point.
-> That's the thing I'd want for any app: your app, your agent, no rewrite.
+> To be straight about what I built: Chili3d is the excellent open-source CAD application and
+> kernel. I built the WebMCP integration: the agent toolset, a shared safety gate, and a shell that
+> composes tools across apps. No fork, no claimed upstream work — just a drop-in agent surface.
 
 **Hard stop.**
 

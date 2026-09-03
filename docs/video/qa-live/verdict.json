@@ -5,12 +5,12 @@
   "differences": [
     "Browser-driven capture records the page surface, so the OS browser address bar and download shelf are not visible.",
     "The persistence beat explicitly saves and reopens the IndexedDB document because an automatic reload opened a fresh empty document in testing.",
-    "The existing narration says fourteen CAD tools while the current deployed badge and repository show fifteen."
+    "The recording badge shows the 15-tool capture build; the final live build later added fillet and chamfer for 17 CAD tools."
   ],
   "suggestions": [
     "Keep the explicit persistence wording visible so the recorded evidence does not overstate automatic reload behavior.",
     "Use the gated export result and retained STEP artifact as the download evidence.",
-    "Regenerate narration later if exact spoken tool-count consistency is required."
+    "Keep the closing narration tool-count-neutral so the recorded badge remains an honest timestamp rather than a contradiction."
   ],
-  "reasoning": "The core demo evidence is large, legible, and visually ordered: real approval dialogs, model geometry, exact tool results, export proof, and provenance all appear at the intended beats. The remaining mismatches are disclosed limitations rather than visual blockers."
+  "reasoning": "The core demo evidence is large, legible, and visually ordered: real approval dialogs, model geometry, exact tool results, export proof, and provenance all appear at the intended beats. Persistence narration now matches the explicit reopen flow, and the closing no longer states a stale tool count."
 }

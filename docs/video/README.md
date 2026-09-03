@@ -1,9 +1,22 @@
 # Chisel demo video handoff
 
+> Update (2026-09-03): the TCC-free browser/CDP recording has now been produced
+> as `screen.mp4` and muxed into `chisel-demo.mp4`. See
+> [`RECORDING-METHOD.md`](RECORDING-METHOD.md) for the exact investigation,
+> commands, verification, and disclosed persistence/narration caveats. The
+> original fallback notes below are retained as the history of the failed
+> macOS `screencapture` attempt.
+
+The final `chisel-demo.mp4` now uses the live browser/CDP visual capture. Its last
+40 seconds were remuxed with corrected narration: persistence is described as
+save, reload, and explicit reopen; the closing no longer states a tool count.
+FFprobe reports exactly 150.000 seconds, 1920×1080 H.264 video, and stereo
+48 kHz AAC audio.
+
 ## Produced
 
-- `chisel-demo.mp4` — a clearly labelled fallback still-image cut using the two supplied Chisel screenshots, timed chapter cards, and full AI narration.
-- `narration.wav` — the complete narration master, generated locally with macOS `say` using the Australian English voice `Karen` and padded to the shot-list boundaries.
+- `chisel-demo.mp4` — the final live product capture with corrected AI narration.
+- `narration.wav` — the 2:30 narration master, generated locally with macOS `say` using the Australian English voice `Karen` and padded to the shot-list boundaries.
 - `narration-sections/*.aiff` — one generated voiceover file per scripted section.
 - `narration-sections/*.txt` — clean speech input for each section.
 - `overlays/*` — editable SVG chapter frames and their rendered PNGs.

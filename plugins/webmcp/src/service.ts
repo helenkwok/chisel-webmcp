@@ -10,10 +10,11 @@ import { ActivityPanel, BOTTOM_OFFSET } from "./activityPanel";
 import { BRIDGE_PROTOCOL, type BridgeToolInfo, isFramed, serveToShell } from "./bridge";
 import { type ConfirmFn, makeGatedExecute, type ToolDef } from "./gate";
 import { EXPORT_TOOLS } from "./tools/export";
+import { MODIFY_TOOLS } from "./tools/modify";
 import { READ_TOOLS } from "./tools/read";
 import { WRITE_TOOLS } from "./tools/write";
 
-const ALL_TOOLS: ToolDef[] = [...READ_TOOLS, ...WRITE_TOOLS, ...EXPORT_TOOLS];
+const ALL_TOOLS: ToolDef[] = [...READ_TOOLS, ...WRITE_TOOLS, ...MODIFY_TOOLS, ...EXPORT_TOOLS];
 
 export const APP_ID = "chisel-cad";
 export const APP_TITLE = "Chisel CAD";

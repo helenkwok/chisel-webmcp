@@ -329,7 +329,8 @@ export const WRITE_TOOLS: ToolDef[] = [
     op(
         "chisel_create_box",
         "Create a box",
-        "Create a rectangular solid box. All dimensions in millimetres. The lower corner sits at (x, y, z), which default to the origin.",
+        "Create a rectangular solid box. All dimensions in millimetres. The lower corner sits at (x, y, z), which default to the origin, so a plate lies flat with dz as its THICKNESS. " +
+            "For a part described as 80 by 40 by 5, use dx=80, dy=40, dz=5.",
         {
             name: { type: "string", description: "Name for the new object." },
             x: num("Lower-corner X in mm. Default 0."),
@@ -344,7 +345,10 @@ export const WRITE_TOOLS: ToolDef[] = [
     op(
         "chisel_create_cylinder",
         "Create a cylinder",
-        "Create a cylindrical solid along the Z axis, centred on (x, y) with its base at z. Use this for holes: make the cylinder, then subtract it with chisel_boolean_cut. Make it slightly taller than the plate and start it slightly below, so the cut passes cleanly through.",
+        "Create a cylindrical solid along the Z axis, centred on (x, y) with its base at z. All millimetres. " +
+            "TO DRILL A HOLE this is step one of two: create the cylinder here, then remove it with chisel_boolean_cut. " +
+            "The cylinder MUST overshoot the material on both ends or the cut leaves a thin skin behind: for a 5mm thick plate sitting on z=0, use z=-2 and dz=9, not z=0 and dz=5. " +
+            "Hole radius is half the nominal diameter, so an M6 bolt hole is radius 3.",
         {
             name: { type: "string", description: "Name for the new object." },
             x: num("Centre X in mm. Default 0."),
@@ -371,7 +375,10 @@ export const WRITE_TOOLS: ToolDef[] = [
     op(
         "chisel_boolean_cut",
         "Subtract solids",
-        "Subtract one or more tool solids FROM a target solid — this is how you make holes and pockets. The target and every tool are consumed and replaced by the single resulting solid.",
+        "Subtract one or more tool solids FROM a target solid. This is how holes and pockets are made. " +
+            "The target AND every tool are consumed and replaced by one new solid with a NEW id, so any id you were holding is stale afterwards: re-read the tree if you need it. " +
+            "WORKED EXAMPLE, a plate with two bolt holes: chisel_create_box(dx=80,dy=40,dz=5) then chisel_create_cylinder(x=15,y=20,z=-2,radius=3,dz=9) and again at x=65, then chisel_boolean_cut(targetId=<the box>, toolIds=[<both cylinders>]). " +
+            "Verify with chisel_get_object on the result: the volume should have dropped by roughly the volume of the cylinders inside the material.",
         {
             name: { type: "string", description: "Name for the resulting solid. Defaults to the target's name." },
             targetId: { type: "string", description: "Id of the solid to cut material out of." },
@@ -405,7 +412,8 @@ export const WRITE_TOOLS: ToolDef[] = [
     op(
         "chisel_delete",
         "Delete objects",
-        "Permanently remove one or more objects from the document. Prefer chisel_undo if you are reversing your own last change.",
+        "Permanently remove one or more objects from the document. Pass EITHER targetId for one object OR toolIds for several. " +
+            "If you are reversing a change you just made, use chisel_undo instead: it restores the previous state exactly, whereas deleting leaves you to rebuild what was consumed.",
         {
             targetId: { type: "string", description: "Id of a single object to delete." },
             toolIds: ids("Ids of several objects to delete."),
@@ -415,7 +423,8 @@ export const WRITE_TOOLS: ToolDef[] = [
     op(
         "chisel_undo",
         "Undo the last change",
-        "Undo the most recent change to the document. Use this to retract an operation you just made that turned out wrong, rather than trying to delete your way back to the previous state.",
+        "Undo the most recent change to the document, restoring the previous state exactly. Use it to retract an operation that turned out wrong, including a boolean that consumed solids you wanted back. " +
+            "It undoes ONE step; call it repeatedly to go further back, and check chisel_get_change_log to see where you are.",
         {},
         [],
     ),

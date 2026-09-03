@@ -55,6 +55,8 @@ function payload(result) {
 try {
   await page.goto(TARGET, { waitUntil: "domcontentloaded" });
   await page.locator("[data-chisel-badge]").filter({ hasText: "ready" }).waitFor({ timeout: 30000 });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator("[data-chisel-badge]").filter({ hasText: "ready" }).waitFor({ timeout: 30000 });
 
   console.log("initial", payload(await executeTool("chisel_get_document_info", {})));
   const box = payload(

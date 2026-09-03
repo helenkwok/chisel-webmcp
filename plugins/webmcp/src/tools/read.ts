@@ -84,12 +84,8 @@ function shapeMetrics(n: INode): Record<string, unknown> {
     // Volume and area are separate try blocks on purpose: a non-solid (a wire,
     // a face) has an area but no meaningful volume, and one throwing must not
     // cost us the other.
-    try {
-        const v = shape.volume?.();
-        if (typeof v === "number" && Number.isFinite(v)) out["volumeMm3"] = round(v);
-    } catch {
-        /* not a solid */
-    }
+    const v = volumeOf(shape);
+    if (v !== undefined) out["volumeMm3"] = round(v);
     try {
         const a = shape.area?.();
         if (typeof a === "number" && Number.isFinite(a)) out["surfaceAreaMm2"] = round(a);
@@ -249,3 +245,41 @@ export const READ_TOOLS: ToolDef[] = [
         },
     },
 ];
+
+/** ShapeTypes.solid from chili3d's bitflag enum. Inlined rather than imported. */
+const SHAPE_TYPE_SOLID = 0b100;
+
+/**
+ * Volume of a shape, including the case that actually matters.
+ *
+ * Only OccSolid implements volume(). A boolean operation returns an OccCompound,
+ * which does not — so a naive `shape.volume()` returns nothing for precisely the
+ * shapes an agent most needs to measure: the results of its own cuts.
+ *
+ * This was caught by testing rather than by reading the types. The box reported
+ * 16000 mm3 and the cut result reported nothing at all, which would have shipped
+ * a verification feature that silently failed on every interesting shape.
+ *
+ * So: try the direct call, and if the shape is a compound, sum the solids in it.
+ */
+function volumeOf(shape: any): number | undefined {
+    try {
+        const direct = shape.volume?.();
+        if (typeof direct === "number" && Number.isFinite(direct)) return direct;
+    } catch {
+        /* fall through to the compound case */
+    }
+    try {
+        const solids: any[] = shape.findSubShapes?.(SHAPE_TYPE_SOLID) ?? [];
+        if (!solids.length) return undefined;
+        let total = 0;
+        for (const solid of solids) {
+            const one = solid.volume?.();
+            if (typeof one !== "number" || !Number.isFinite(one)) return undefined;
+            total += one;
+        }
+        return total;
+    } catch {
+        return undefined;
+    }
+}

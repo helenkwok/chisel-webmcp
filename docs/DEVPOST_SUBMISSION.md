@@ -191,7 +191,7 @@ do not patch its application code. The README states this boundary in a table at
 | Country of residence | **TODO: confirm for every team member** |
 | App Status | New |
 | Existing-project update | Chisel is a new project created during the submission period. It integrates the pre-existing open-source Chili3d CAD application without claiming that upstream work as ours. All WebMCP integration, safety, activity, bridge, and shell code is new and isolated in this repository. |
-| Agents/clients tested | Google Chrome 152 with `chrome://flags/#enable-webmcp-testing` enabled. **TODO: add ChatGPT in-app browser only after a final live tool-call check there.** |
+| Agents/clients tested | Google Chrome 152 with `chrome://flags/#enable-webmcp-testing` enabled, plus the Codex desktop in-app browser against production. Both direct registration and the top-level shell bridge were exercised with real tool calls. |
 | AI tools used | Codex for implementation, debugging, review and submission preparation; Claude for concurrent development-server and browser iteration; Grok for adversarial design review. |
 | Learning derived | Significant |
 | Reusable career AI value | Yes |
@@ -202,11 +202,11 @@ do not patch its application code. The README states this boundary in a table at
 
 ### Working project
 - [x] Live URL responds 200 and loads
-- [ ] 15 CAD tools present after deploying the in-app-browser bridge and export update
-- [ ] `/shell/` composes 15 CAD tools with 2 shell tools in the production in-app browser
+- [x] 15 CAD tools present in a fresh production root session
+- [x] `/shell/` composes 15 CAD tools with 2 shell tools in the production in-app browser
 - [x] Confirm dialog fires on writes
 - [x] Geometry persists across reload
-- [ ] STEP export verified on the deployed URL
+- [x] Gated STEP export reports success on the deployed `/shell/` route
 
 ### Repository
 - [x] Public
@@ -227,5 +227,5 @@ do not patch its application code. The README states this boundary in a table at
 - [ ] Description pasted
 - [ ] All links filled
 - [ ] Confirm submitter type and residence field values
-- [ ] Re-test in ChatGPT's in-app browser and update the tested-clients answer
+- [x] Re-tested the top-level-only WebMCP host path in Codex's production in-app browser
 - [ ] Submitted before **2026-09-03 13:00 PDT**

@@ -49,26 +49,54 @@ function nodeKind(n: INode): string {
     return n.constructor?.name ?? "Node";
 }
 
-/** Bounding box + volume/area, the numbers a human actually asks for. */
+/**
+ * Bounding box, volume and surface area.
+ *
+ * Volume is the load-bearing one, and it exists because of a real gap: an agent
+ * driving a 3D kernel is otherwise working blind. It cannot see the viewport, so
+ * after a boolean cut it has no way to tell a successful subtraction from a
+ * no-op that happened to return a new solid. Volume closes that loop
+ * arithmetically — an 80x40x5 plate is 16000 mm3, and after two 3mm-radius
+ * holes are cut through it, it is about 15717. The agent can check its own work
+ * instead of trusting a success message, which is the only kind of verification
+ * worth anything.
+ */
 function shapeMetrics(n: INode): Record<string, unknown> {
     const geo = n as unknown as GeometryNode;
     const shape = (geo as any)?.shape?.value ?? (geo as any)?.shape;
     if (!shape) return {};
+    const out: Record<string, unknown> = {};
     try {
+        out["shapeType"] = shape.shapeType;
         const bb = shape.boundingBox?.();
-        return {
-            shapeType: shape.shapeType,
-            boundingBox: bb
-                ? {
-                      min: [round(bb.min.x), round(bb.min.y), round(bb.min.z)],
-                      max: [round(bb.max.x), round(bb.max.y), round(bb.max.z)],
-                      size: [round(bb.max.x - bb.min.x), round(bb.max.y - bb.min.y), round(bb.max.z - bb.min.z)],
-                  }
-                : undefined,
-        };
+        if (bb) {
+            out["boundingBoxMin"] = [round(bb.min.x), round(bb.min.y), round(bb.min.z)];
+            out["boundingBoxMax"] = [round(bb.max.x), round(bb.max.y), round(bb.max.z)];
+            out["sizeMm"] = [
+                round(bb.max.x - bb.min.x),
+                round(bb.max.y - bb.min.y),
+                round(bb.max.z - bb.min.z),
+            ];
+        }
     } catch {
-        return {};
+        /* a shape without a bounding box is still worth reporting by name */
     }
+    // Volume and area are separate try blocks on purpose: a non-solid (a wire,
+    // a face) has an area but no meaningful volume, and one throwing must not
+    // cost us the other.
+    try {
+        const v = shape.volume?.();
+        if (typeof v === "number" && Number.isFinite(v)) out["volumeMm3"] = round(v);
+    } catch {
+        /* not a solid */
+    }
+    try {
+        const a = shape.area?.();
+        if (typeof a === "number" && Number.isFinite(a)) out["surfaceAreaMm2"] = round(a);
+    } catch {
+        /* no area */
+    }
+    return out;
 }
 
 function round(v: number): number {
@@ -90,7 +118,7 @@ export const READ_TOOLS: ToolDef[] = [
         name: "chisel_get_document_info",
         title: "Get document info",
         description:
-            "Summary of the open CAD document: its name, how many objects it contains, a breakdown by object kind, and the current undo depth. Call this first to orient yourself before any other tool.",
+            "Summary of the open CAD document: name, object count, a breakdown by kind, undo depth, the kernel in use, and the unit system. CALL THIS FIRST in any modelling session so you know whether the document is empty and what units you are working in. All lengths in this app are MILLIMETRES.",
         inputSchema: { type: "object", properties: {}, additionalProperties: false },
         handler: (_input, app) => {
             const doc = requireDocument(app);
@@ -178,7 +206,7 @@ export const READ_TOOLS: ToolDef[] = [
         name: "chisel_get_object",
         title: "Get object detail",
         description:
-            "Full detail for one object by id: name, kind, visibility, transform, material, and its geometric bounding box and size. Use this to check dimensions before and after a modelling operation.",
+            "Full detail for one object by id: name, kind, visibility, material, position, bounding box, size in millimetres, VOLUME in mm3 and surface area in mm2. Use it to VERIFY your own work: after a boolean cut, the volume should have decreased by roughly the volume of what you removed. If it did not, the cut did not do what you intended, whatever the success message said.",
         inputSchema: {
             type: "object",
             properties: { id: { type: "string", description: "Object id from the scene tree or a query." } },

@@ -2,7 +2,9 @@
 //
 // Chili3d's AppBuilder.loadDefaultPlugins() fetches <origin>/plugins/plugins.json
 // at boot and loads what it lists from the same origin. That is the whole trick:
-// we never modify an upstream file, we just add ours to the built output.
+// we do not maintain a fork or patch Chili3d's application code. In this
+// build-only checkout we add Chisel to the documented plugin list, then emit
+// the combined deployment bundle.
 //
 // MIT licensed. See LICENSE.
 
@@ -33,8 +35,8 @@ const pluginInVendor = resolve(VENDOR, "plugins/webmcp");
 cpSync(pluginSrc, pluginInVendor, { recursive: true });
 run(`${resolve(VENDOR, "node_modules/.bin/rspack")} build`, pluginInVendor);
 
-// Upstream copies /public into /dist verbatim, so dropping our files there is
-// enough — and touches nothing upstream owns.
+// Upstream copies /public into /dist, so adding our plugin to the staging
+// checkout's plugin list is enough; no application-code patch is needed.
 const pubPlugins = resolve(VENDOR, "public/plugins");
 mkdirSync(resolve(pubPlugins, "webmcp/dist"), { recursive: true });
 writeFileSync(resolve(pubPlugins, "plugins.json"), JSON.stringify({ plugins: ["webmcp"] }, null, 4));
@@ -43,5 +45,6 @@ cpSync(resolve(pluginInVendor, "dist/main.js"), resolve(pubPlugins, "webmcp/dist
 
 run("npm run build", VENDOR);
 cpSync(resolve(VENDOR, "dist"), resolve(ROOT, "dist"), { recursive: true });
+cpSync(resolve(ROOT, "shell"), resolve(ROOT, "dist/shell"), { recursive: true });
 
-console.log("\n✓ Bundle ready in ./dist — upstream Chili3d unmodified, Chisel plugin added.");
+console.log("\n✓ Bundle ready in ./dist — pinned Chili3d build plus the Chisel plugin and shell.");

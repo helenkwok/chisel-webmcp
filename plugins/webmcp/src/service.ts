@@ -9,10 +9,11 @@ import type { IApplication, IService } from "@chili3d/core";
 import { ActivityPanel, BOTTOM_OFFSET } from "./activityPanel";
 import { BRIDGE_PROTOCOL, type BridgeToolInfo, isFramed, serveToShell } from "./bridge";
 import { type ConfirmFn, makeGatedExecute, type ToolDef } from "./gate";
+import { EXPORT_TOOLS } from "./tools/export";
 import { READ_TOOLS } from "./tools/read";
 import { WRITE_TOOLS } from "./tools/write";
 
-const ALL_TOOLS: ToolDef[] = [...READ_TOOLS, ...WRITE_TOOLS];
+const ALL_TOOLS: ToolDef[] = [...READ_TOOLS, ...WRITE_TOOLS, ...EXPORT_TOOLS];
 
 export const APP_ID = "chisel-cad";
 export const APP_TITLE = "Chisel CAD";
@@ -32,8 +33,9 @@ export class WebMcpService implements IService {
         const app = this.app;
         if (!app) return;
 
+        const framed = isFramed();
         const mc = (document as any).modelContext;
-        if (!mc?.registerTool) {
+        if (!framed && !mc?.registerTool) {
             // Degrade to a no-op rather than throwing: the app must still work
             // in a browser without WebMCP. We tell the human why, once.
             console.warn(
@@ -74,7 +76,13 @@ export class WebMcpService implements IService {
         // If we are inside a shell, publish the catalogue upward instead of
         // registering here — an agent talks to the TOP-LEVEL document, so a
         // registration in this frame would not be the surface it sees.
-        if (isFramed()) {
+        if (framed) {
+            // Some hosts, including the ChatGPT/Codex in-app browser, expose
+            // document.modelContext only on the top-level document. A framed
+            // app does not need it: it publishes plain tool metadata to the
+            // shell, which owns the top-level registration. Keep this branch
+            // ahead of the direct-registration path so composition works in
+            // those hosts rather than silently publishing zero app tools.
             const catalogue: BridgeToolInfo[] = ALL_TOOLS.map((d) => ({
                 name: d.name,
                 title: d.title,

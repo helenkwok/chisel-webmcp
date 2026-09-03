@@ -19,7 +19,7 @@ then clear the document before the live build.
 ## 0:00–0:15 — The hook, on screen immediately
 
 **On screen:** the finished bracket already visible in the framed CAD app. The shell header reads
-*"17 tools registered across 2 apps"*. Hold for three seconds, then clear the document. Keep the
+*"19 tools registered across 2 apps"*. Hold for three seconds, then clear the document. Keep the
 agent activity panel and shell statistics visible.
 
 **Type the prompt live** (don't paste — it reads as real):
@@ -108,7 +108,7 @@ summary.
 **Say:**
 
 > To be straight about what I built: the CAD application is Chili3d, an excellent open-source
-> project I did not write. What I built is the WebMCP integration: fifteen CAD tools, one shared
+> project I did not write. What I built is the WebMCP integration: seventeen CAD tools, one shared
 > safety gate, and a shell that merges them with another app's tools. We maintain no fork and
 > patch none of Chili3d's application code; its existing plugin system is the integration point.
 > That's the thing I'd want for any app: your app, your agent, no rewrite.
@@ -119,7 +119,7 @@ summary.
 
 ## Recording checklist
 
-- [ ] WebMCP flag enabled; shell shows **17 tools registered across 2 apps**
+- [ ] WebMCP flag enabled; shell shows **19 tools registered across 2 apps**
 - [ ] Finished bracket visible in the first 10 seconds, then document cleared for the live build
 - [ ] **Audio narration present** (rules requirement — silent + music is a fail)
 - [ ] Confirm dialog clearly visible at least once, and paused on

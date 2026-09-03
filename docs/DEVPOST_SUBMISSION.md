@@ -21,9 +21,9 @@ WebAssembly, Three.js, TypeScript, Rspack, IndexedDB, Cloudflare Workers
 
 Chisel exposes a real B-rep CAD kernel to in-browser AI agents through WebMCP. Ask for "a mounting
 bracket 80×40×5mm with two 6mm holes" and the agent calls OpenCascade directly — `create_box`,
-`create_cylinder`, `boolean_cut` — producing a genuine solid it can export as STEP. Fifteen CAD
+`create_cylinder`, `boolean_cut` — producing a genuine solid it can export as STEP. Seventeen CAD
 tools, a single registration-boundary gate for every consequential action, and a shell that
-composes multiple web apps into one 17-tool agent surface.
+composes multiple web apps into one 19-tool agent surface.
 
 ---
 
@@ -41,7 +41,7 @@ part. If WebMCP is right about anything, it is right here.
 
 ### What it does
 
-Chisel registers 15 tools on `document.modelContext` inside a working browser CAD application:
+Chisel registers 17 tools on `document.modelContext` inside a working browser CAD application:
 
 **Six read tools** — `chisel_get_document_info`, `chisel_get_scene_tree`, `chisel_get_selection`,
 `chisel_query_objects`, `chisel_get_object`, `chisel_get_change_log`. These let an agent inspect
@@ -52,6 +52,10 @@ one" resolves to something), and the undo history so it can verify its own work.
 move; delete; and undo. Small schemas make calls more reliable, while every write still passes
 through the same registration-boundary gate and exact-call approval dialog.
 
+**Two finishing tools** — `chisel_fillet` and `chisel_chamfer` round or bevel the exact B-rep
+edges in OpenCascade. The agent can verify the result numerically because object inspection also
+returns volume and surface area, not only a success string.
+
 **One export tool** — `chisel_export` downloads STEP, IGES, BREP, STL or OBJ through that same gate.
 For STEP it reports the ISO-10303 validity envelope, schema, B-rep solid count, and analytic plane
 and cylinder counts, so the agent can verify that it produced exact CAD geometry rather than a
@@ -59,7 +63,7 @@ mesh with a `.step` extension.
 
 The `/shell/` route demonstrates a second WebMCP idea: composition. Because agents talk to the
 top-level document, the framed CAD app publishes its tool catalogue to a same-origin shell. The
-shell registers those 15 verbs alongside two of its own — connected-app discovery and session
+shell registers those 17 verbs alongside two of its own — connected-app discovery and session
 statistics — then forwards CAD calls back to the app that owns the model and its consent UI.
 
 The result is a real solid: OpenCascade B-rep geometry, persisted to IndexedDB so it survives a
@@ -130,10 +134,12 @@ costs a confusing `"Failed to parse input arguments"` until you work it out.
   `affectedCount` of 4.
 - A drop-in that forks nothing — any Chili3d deployment can add an agent surface by copying one
   directory.
-- A catalogue-driven shell that exposes 17 tools across two independently owned web apps without
+- A catalogue-driven shell that exposes 19 tools across two independently owned web apps without
   bypassing the CAD app's consent gate.
 - Agent-driven STEP export that verifies the file's schema, solids, and analytic surfaces before
   claiming success.
+- Exact fillet and chamfer operations, with volume and surface-area readback so the agent can check
+  the geometry rather than trusting its own success message.
 - A safety layer we'd defend on its merits rather than as hackathon garnish.
 
 ### Two honest things about WebMCP
@@ -155,9 +161,9 @@ allowed to swallow, and whether your success messages are true.
 
 ### What's next
 
-Fillets and chamfers as first-class verbs; sketch-and-extrude so an agent can work from a profile;
-a proper diff view in the confirm dialog showing before/after geometry rather than the call; and
-letting the agent read a selected *face* rather than a whole object, so "chamfer this edge" works.
+Sketch-and-extrude so an agent can work from a profile; a proper diff view in the confirm dialog
+showing before/after geometry rather than the call; and letting the agent address selected faces
+and individual edges rather than applying finishing operations to the whole solid.
 
 ---
 
@@ -202,8 +208,8 @@ do not patch its application code. The README states this boundary in a table at
 
 ### Working project
 - [x] Live URL responds 200 and loads
-- [x] 15 CAD tools present in a fresh production root session
-- [x] `/shell/` composes 15 CAD tools with 2 shell tools in the production in-app browser
+- [ ] 17 CAD tools present after deploying fillet and chamfer
+- [ ] `/shell/` composes 17 CAD tools with 2 shell tools in the production in-app browser
 - [x] Confirm dialog fires on writes
 - [x] Geometry persists across reload
 - [x] Gated STEP export reports success on the deployed `/shell/` route

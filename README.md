@@ -19,7 +19,7 @@ Per the challenge rules (Section 4), here is the boundary, stated plainly:
 
 | | |
 |---|---|
-| **Written by us, new, in this repo** | The entire WebMCP integration: `plugins/webmcp/` and `shell/` — 15 CAD tools, the registration-boundary gate, the human confirm seam, exact STEP export, the activity panel, the framed-app bridge, and a shell that merges tools from multiple web apps into one agent surface. |
+| **Written by us, new, in this repo** | The entire WebMCP integration: `plugins/webmcp/` and `shell/` — 17 CAD tools, the registration-boundary gate, the human confirm seam, exact STEP export, the activity panel, the framed-app bridge, and a shell that merges tools from multiple web apps into one agent surface. |
 | **NOT ours — third-party open source** | The CAD application itself: [**Chili3d**](https://github.com/xiangechen/chili3d) by xiangechen (AGPL-3.0), which supplies the OpenCascade 8.0.0 WASM kernel, the Three.js viewport, IndexedDB persistence and STEP/IGES/BREP/STL export. |
 
 **We did not write the CAD kernel and we do not claim to.** What we built is the agent surface for
@@ -39,6 +39,7 @@ chisel-webmcp/                  ← this repo: 100% new work
     activityPanel.ts            ← visible audit trail for agent calls and approvals
     tools/read.ts               ← 6 read tools
     tools/write.ts              ← 8 named write tools, one shared operation core
+    tools/modify.ts             ← gated fillet and chamfer operations
     tools/export.ts             ← gated STEP/IGES/BREP/STL/OBJ download
   shell/index.html              ← merges the CAD tools with shell-owned tools
   scripts/vendor.mjs            ← pins upstream and builds the combined bundle
@@ -53,10 +54,10 @@ deployed bundle:
 
 ## The tools
 
-The CAD app exposes **15 tools**: six read tools, eight named modelling tools, and one gated export
-tool. The optional
+The CAD app exposes **17 tools**: six read tools, eight named modelling tools, fillet and chamfer,
+and one gated export tool. The optional
 [`/shell/`](https://chisel-webmcp.helenkwok.workers.dev/shell/) adds two shell-owned read tools,
-giving the top-level agent one 17-tool surface across two apps.
+giving the top-level agent one 19-tool surface across two apps.
 
 | Tool | |
 |---|---|
@@ -74,6 +75,8 @@ giving the top-level agent one 17-tool surface across two apps.
 | `chisel_move` | Translate an object in millimetres |
 | `chisel_delete` | Remove one or more objects |
 | `chisel_undo` | Retract the most recent document change |
+| `chisel_fillet` | Round every edge of a solid with an exact kernel fillet |
+| `chisel_chamfer` | Bevel every edge of a solid with an exact kernel chamfer |
 | `chisel_export` | Download STEP, IGES, BREP, STL or OBJ and report what the file contains |
 
 ## Why every consequential tool shares one gate

@@ -1,11 +1,17 @@
 import { spawn } from "node:child_process";
+import { mkdtempSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { resolve } from "node:path";
 import { chromium } from "/Users/helen/.npm/_npx/705bc6b22212b352/node_modules/playwright/index.mjs";
 
 const HERE = new URL("./", import.meta.url).pathname;
-const PROFILE = resolve(HERE, ".chrome-demo-profile");
+// The capture profile must NOT live in the repo. A previous run left ~29MB of
+// cookies, history and Login Data databases here and they were committed to a
+// public repository before anyone noticed. mkdtemp puts it in the OS temp dir.
+const PROFILE = mkdtempSync(join(tmpdir(), "chisel-capture-"));
 const DOWNLOADS = resolve(HERE, "downloads");
 const OUTPUT = resolve(HERE, "screen.mp4");
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -304,7 +310,7 @@ try {
   await setOverlay(
     "Measured by the CAD kernel",
     "Mounting bracket",
-    `boundingBox.size: ${JSON.stringify(object.boundingBox?.size)}\nobject id: ${object.id}\nshape: analytic B-rep solid`,
+    `sizeMm: ${JSON.stringify(object.sizeMm)}\nvolumeMm3: ${object.volumeMm3}\nshape: analytic B-rep solid, measured by OpenCascade`,
   );
 
   await at(106);

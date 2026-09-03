@@ -53,6 +53,7 @@ run("npm run build", VENDOR);
 rmSync(resolve(ROOT, "dist"), { recursive: true, force: true });
 cpSync(resolve(VENDOR, "dist"), resolve(ROOT, "dist/cad"), { recursive: true });
 cpSync(resolve(ROOT, "shell/index.html"), resolve(ROOT, "dist/index.html"));
+cpSync(resolve(ROOT, "video"), resolve(ROOT, "dist/video"), { recursive: true });
 cpSync(resolve(ROOT, "shell"), resolve(ROOT, "dist/shell"), { recursive: true });
 
 console.log("\n✓ Bundle ready in ./dist — pinned Chili3d build plus the Chisel plugin and shell.");

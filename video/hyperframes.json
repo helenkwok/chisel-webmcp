@@ -1,0 +1,10 @@
+{
+  "$schema": "https://hyperframes.heygen.com/schema/hyperframes.json",
+  "name": "chisel-showreel",
+  "description": "A HyperFrames composition that turns the live Chisel CAD session into a short produced clip. Plays in the browser as a preview; `npx hyperframes render . -o showreel.mp4` renders it to video.",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "durationSeconds": 14,
+  "paths": { "assets": "assets" }
+}

@@ -79,6 +79,12 @@
       <div class="apps" id="apps"><div class="empty">Waiting for an app to announce itself…</div></div>
     </section>
 
+    <section id="video">
+      <h2>Showreel <span style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0">— a third app: a HyperFrames composition at /video/</span></h2>
+      <iframe id="reel" src="/video/" title="Chisel showreel"
+              style="border:0;width:100%;aspect-ratio:16/9;border-radius:9px;background:#000;display:block"></iframe>
+    </section>
+
     <section id="stats">
       <h2>Model statistics <span style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0">— a second app, also agent-callable</span></h2>
       <div class="kpis">
@@ -121,7 +127,7 @@ const appsEl = document.getElementById("apps");
 const statusEl = document.getElementById("status");
 const statusText = document.getElementById("statusText");
 
-const apps = new Map();           // appId -> { title, tools }
+const apps = new Map();           // appId -> { title, tools, win }  (win = the frame that announced it)
 const pending = new Map();        // callId -> resolve
 let callSeq = 0;
 let toolCalls = 0, changeCount = 0;
@@ -137,7 +143,10 @@ function invokeInApp(appId, tool, input) {
   return new Promise((resolve) => {
     const callId = `${appId}:${++callSeq}`;
     pending.set(callId, resolve);
-    frame.contentWindow.postMessage(
+    // Post to the frame that announced this app. The shell hosts several apps,
+    // each in its own frame, and an invoke must land in the one that owns the tool.
+    const target = apps.get(appId)?.win ?? frame.contentWindow;
+    target.postMessage(
       { protocol: PROTOCOL, type: "invoke", callId, tool, input },
       location.origin,
     );
@@ -278,7 +287,7 @@ window.addEventListener("message", (ev) => {
   if (!m || m.protocol !== PROTOCOL) return;
 
   if (m.type === "catalogue") {
-    apps.set(m.appId, { title: m.appTitle, tools: m.tools });
+    apps.set(m.appId, { title: m.appTitle, tools: m.tools, win: ev.source });
     registerCatalogue(m.appId, m.appTitle, m.tools);
     renderApps();
     refreshStats();
@@ -289,9 +298,11 @@ window.addEventListener("message", (ev) => {
 });
 
 // The app may have loaded before us; say hello so it re-announces.
-frame.addEventListener("load", () => {
-  frame.contentWindow.postMessage({ protocol: PROTOCOL, type: "hello" }, location.origin);
-});
+for (const f of document.querySelectorAll("iframe")) {
+  f.addEventListener("load", () => {
+    f.contentWindow.postMessage({ protocol: PROTOCOL, type: "hello" }, location.origin);
+  });
+}
 
 // ── Statistics panel ────────────────────────────────────────────────────────
 
@@ -299,7 +310,7 @@ async function refreshStats() {
   document.getElementById("kCalls").textContent = toolCalls;
   document.getElementById("kChanges").textContent = changeCount;
 
-  const cad = [...apps.keys()][0];
+  const cad = [...apps.entries()].find(([, a]) => a.tools.some((t) => t.name === "chisel_get_document_info"))?.[0];
   if (!cad) return;
   const res = await invokeInApp(cad, "chisel_get_document_info", {});
   const text = String(res?.content?.[0]?.text ?? "");

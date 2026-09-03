@@ -41,7 +41,8 @@ chisel-webmcp/                  ← this repo: 100% new work
     tools/write.ts              ← 8 named write tools, one shared operation core
     tools/modify.ts             ← gated fillet and chamfer operations
     tools/export.ts             ← gated STEP/IGES/BREP/STL/OBJ download
-  shell/index.html              ← merges the CAD tools with shell-owned tools
+  shell/index.html              ← merges tools from every framed app with its own
+  video/                        ← the showreel: a HyperFrames composition that is also an app
   scripts/vendor.mjs            ← pins upstream and builds the combined bundle
 
 deployed bundle:
@@ -171,6 +172,8 @@ Chisel is a thin layer over other people's good work, and says so:
 | [Chili3d](https://github.com/xiangechen/chili3d) | AGPL-3.0 | the CAD application: OpenCascade 8 in WebAssembly, Three.js viewport, persistence, STEP export |
 | [flint-chart](https://github.com/microsoft/flint-chart) | MIT | Microsoft's chart language *for agents*; compiles the agent-authored spec behind `shell_chart_model_data` |
 | [vega-embed](https://github.com/vega/vega-embed) / Vega-Lite | BSD-3 | draws the compiled chart |
+| [HyperFrames](https://github.com/heygen-com/hyperframes) | Apache-2.0 | the composition format of the `/video/` showreel: plain HTML plus a GSAP timeline, renderable to MP4 by its CLI |
+| [GSAP](https://gsap.com) | Standard licence | drives the showreel timeline |
 | [WebMCP](https://github.com/webmachinelearning/webmcp) | W3C CG draft | the standard everything here is registered against |
 
 flint-chart and vega-embed are loaded lazily from a CDN and are optional: if either fails, the
@@ -181,9 +184,9 @@ statistics panel falls back to a built-in sparkline rather than going blank.
 - Fillet and chamfer on *selected* edges rather than all edges, so "chamfer this edge" works.
 - Sketch-and-extrude, so an agent can work from a 2D profile.
 - A before/after geometry diff in the confirm dialog, instead of the call text.
-- A third app in the shell: a [HyperFrames](https://github.com/heygen-com/hyperframes) composition
-  at `/video/` that turns the current model into a rendered turntable video on request — the same
-  catalogue-driven bridge, so the shell needs no code changes to add it.
+- Render the `/video/` showreel to an MP4 on request, via the HyperFrames CLI, and hand the file
+  back through the shell — today it plays as a live preview in the browser.
+- A camera-orbit message in the bridge, so the showreel can turn the model rather than frame it.
 
 ## Licence
 

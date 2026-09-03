@@ -30,3 +30,9 @@ CDN at runtime to compile agent-authored chart specs to Vega-Lite. Not vendored;
 ## vega-embed, Vega, Vega-Lite — BSD-3-Clause
 
 Loaded from a CDN at runtime to render the compiled chart. Not vendored; not modified.
+
+## HyperFrames — Apache-2.0; GSAP — Standard "no charge" licence
+
+`video/` is authored as a [HyperFrames](https://github.com/heygen-com/hyperframes) composition
+(`hyperframes.json` + `index.html`) and uses GSAP, loaded from a CDN, for its timeline. Neither is
+vendored or modified.

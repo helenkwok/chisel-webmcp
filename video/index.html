@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>Chisel showreel</title>
+<!--
+  A HyperFrames composition (github.com/heygen-com/hyperframes): plain HTML plus a
+  GSAP timeline. In a browser it plays as a live preview; the HyperFrames CLI
+  renders the same page frame-by-frame to an MP4:
+
+      npx hyperframes render . -o showreel.mp4 --fps 30
+
+  It is also the THIRD app in the Chisel shell. It speaks the same four-message
+  bridge as the CAD app, so the shell registers its tools without knowing what a
+  showreel is. Everything it shows comes from the session it is embedded in.
+-->
+<style>
+  :root{--bg:#07090f;--ink:#f2f5fb;--muted:#8d9ab8;--accent:#4f8cff;--ok:#34d399}
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+    font:16px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+  #stage{position:relative;width:100%;height:100%}
+  .card{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+    padding:6% 8%;opacity:0}
+  .kicker{color:var(--accent);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:clamp(11px,1.1vw,20px)}
+  h1{font-size:clamp(28px,5.2vw,96px);font-weight:800;letter-spacing:-.02em;line-height:1.02;margin:.35em 0 .3em}
+  h2{font-size:clamp(20px,3.2vw,60px);font-weight:750;letter-spacing:-.015em;line-height:1.08;margin:.3em 0}
+  p{color:var(--muted);font-size:clamp(13px,1.6vw,30px);max-width:34ch}
+  .stat{font:800 clamp(40px,9vw,170px)/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-variant-numeric:tabular-nums;color:var(--ok);letter-spacing:-.03em}
+  .line{position:absolute;left:8%;right:8%;height:2px;background:var(--accent);transform-origin:left;transform:scaleX(0)}
+  #live{position:absolute;inset:0;opacity:0}
+  #live iframe{border:0;width:100%;height:100%;background:#8a8a8a}
+  #live .vignette{position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(7,9,15,.85) 0%,transparent 22%,transparent 78%,rgba(7,9,15,.9) 100%)}
+  #live .cap{position:absolute;left:8%;bottom:9%;max-width:60%}
+  #badge{position:absolute;right:2.2%;top:2.2%;display:flex;gap:8px;align-items:center;
+    padding:6px 11px;border-radius:999px;background:#0c2f24;color:#c9f5e4;border:1px solid #17513d;
+    font-size:clamp(10px,.9vw,14px);font-weight:650}
+  #badge .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  #scrub{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(0);opacity:.7}
+</style>
+</head>
+<body>
+<div id="stage">
+  <section class="card" id="c1">
+    <div class="kicker">Chisel · WebMCP</div>
+    <h1>An agent with a real<br>CAD kernel.</h1>
+    <p>OpenCascade in a browser tab. Every modelling verb is a WebMCP tool.</p>
+    <div class="line" id="l1" style="bottom:38%"></div>
+  </section>
+
+  <div id="live">
+    <iframe src="/cad/" title="live CAD session"></iframe>
+    <div class="vignette"></div>
+    <div class="cap">
+      <div class="kicker">Live session</div>
+      <h2 id="liveTitle">Solids, not meshes.</h2>
+      <p id="liveSub">Booleans, fillets and STEP export, driven by tool calls a human approves.</p>
+    </div>
+  </div>
+
+  <section class="card" id="c3">
+    <div class="kicker">This session</div>
+    <div class="stat" id="statN">0</div>
+    <h2 id="statLabel">tool calls</h2>
+    <p id="statSub">and every change went through a human.</p>
+  </section>
+
+  <section class="card" id="c4">
+    <div class="kicker">Chisel</div>
+    <h1>Your app.<br>Your agent.<br>No rewrite.</h1>
+    <p>A drop-in plugin for an unmodified CAD app, and a shell that merges tools across apps.</p>
+  </section>
+
+  <div id="badge"><span class="dot"></span><span id="badgeText">showreel · connecting…</span></div>
+  <div id="scrub"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script type="module">
+// ─── The bridge: this page is an app in the shell ───────────────────────────
+const PROTOCOL = "chisel-webmcp/1";
+const APP_ID = "chisel-showreel", APP_TITLE = "Chisel Showreel";
+const state = { calls: 0, changes: 0, caption: null };
+
+const TOOLS = [
+  {
+    name: "video_play_showreel", title: "Play the showreel",
+    description: "Play a 14-second produced clip of the current Chisel session in the showreel panel: title card, the live CAD viewport, a session statistic, end card. Optionally pass the number of tool calls and approved changes so the statistic reflects the real session (get them from shell_get_session_stats).",
+    inputSchema: { type: "object", properties: {
+      toolCalls: { type: "integer", minimum: 0, description: "Tool calls so far, from shell_get_session_stats." },
+      changesApplied: { type: "integer", minimum: 0, description: "Approved changes so far." },
+    }, additionalProperties: false },
+    write: false,
+    run: (input) => { if (input?.toolCalls != null) state.calls = input.toolCalls; if (input?.changesApplied != null) state.changes = input.changesApplied; play(); return { playing: true, durationSeconds: 14, stat: state.calls }; },
+  },
+  {
+    name: "video_set_caption", title: "Set the showreel caption",
+    description: "Set the headline and subline shown over the live viewport in the showreel. Use it to say what the model IS in words, e.g. 'An 80×40×5 bracket with two M6 holes'.",
+    inputSchema: { type: "object", properties: {
+      headline: { type: "string", maxLength: 60 }, subline: { type: "string", maxLength: 120 },
+    }, required: ["headline"], additionalProperties: false },
+    write: false,
+    run: (input) => { document.getElementById("liveTitle").textContent = input.headline; if (input.subline) document.getElementById("liveSub").textContent = input.subline; state.caption = input.headline; return { caption: input.headline }; },
+  },
+];
+
+const text = (v, isError = false) => ({ content: [{ type: "text", text: typeof v === "string" ? v : JSON.stringify(v, null, 1) }], isError });
+const catalogue = TOOLS.map(({ name, title, description, inputSchema, write }) => ({ name, title, description, inputSchema, write }));
+
+function post(msg) { try { window.parent.postMessage(msg, location.origin); } catch {} }
+const framed = (() => { try { return window.parent !== window; } catch { return true; } })();
+
+if (framed) {
+  window.addEventListener("message", (ev) => {
+    if (ev.origin !== location.origin) return;
+    const m = ev.data; if (!m || m.protocol !== PROTOCOL) return;
+    if (m.type === "hello") announce();
+    if (m.type === "invoke") {
+      const t = TOOLS.find((x) => x.name === m.tool);
+      let result;
+      try { result = t ? text(t.run(m.input ?? {})) : text(`Unknown tool ${m.tool}`, true); }
+      catch (err) { result = text(`ERROR in ${m.tool}: ${err.message}`, true); }
+      post({ protocol: PROTOCOL, type: "result", callId: m.callId, result });
+    }
+  });
+  const announce = () => post({ protocol: PROTOCOL, type: "catalogue", appId: APP_ID, appTitle: APP_TITLE, tools: catalogue });
+  announce();
+  document.getElementById("badgeText").textContent = `showreel · ${TOOLS.length} tools published`;
+} else {
+  document.getElementById("badgeText").textContent = "showreel · standalone preview";
+}
+
+// ─── The composition: a GSAP timeline, deterministic in time ────────────────
+// HyperFrames drives `tl.seek(frame / fps)` when rendering, so nothing here may
+// depend on wall-clock; everything is a function of timeline position.
+let tl;
+function build() {
+  const n = document.getElementById("statN");
+  const t = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+  t.to("#scrub", { scaleX: 1, duration: 14, ease: "none" }, 0)
+   .to("#c1", { opacity: 1, duration: .8 }, 0)
+   .from("#c1 h1", { y: 40, opacity: 0, duration: .9 }, .15)
+   .to("#l1", { scaleX: 1, duration: .8 }, .5)
+   .to("#c1", { opacity: 0, duration: .6 }, 3.2)
+   .to("#live", { opacity: 1, duration: .8 }, 3.6)
+   .from("#live .cap", { y: 30, opacity: 0, duration: .9 }, 4.0)
+   .to("#live", { opacity: 0, duration: .6 }, 8.6)
+   .to("#c3", { opacity: 1, duration: .6 }, 9.0)
+   .to(n, { textContent: () => state.calls, snap: { textContent: 1 }, duration: 1.6, ease: "power2.out" }, 9.1)
+   .to("#c3", { opacity: 0, duration: .6 }, 11.6)
+   .to("#c4", { opacity: 1, duration: .8 }, 12.0)
+   .from("#c4 h1", { y: 40, opacity: 0, duration: .9 }, 12.1);
+  return t;
+}
+function play() { tl?.kill(); tl = build(); tl.play(0); }
+
+// HyperFrames render hook: the CLI seeks the timeline by time rather than playing it.
+window.__hyperframes = { duration: 14, seek: (t) => { if (!tl) { tl = build(); } tl.pause(); tl.seek(t, false); } };
+
+// Standalone: autoplay once so the page is never a black box.
+if (!framed) setTimeout(play, 600);
+</script>
+</body>
+</html>

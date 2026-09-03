@@ -19,13 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-NOTE ON THE DEPLOYED BUNDLE: this plugin is designed to be dropped into a
-build of Chili3d (https://github.com/xiangechen/chili3d), which is licensed
-AGPL-3.0 (its C++/WASM module LGPL-3.0). The MIT licence above covers ONLY the
-code in this repository. A deployed bundle that combines this plugin with
-Chili3d is a combined work governed by AGPL-3.0, and its Corresponding Source
-is: this repository, plus unmodified upstream Chili3d at the commit pinned in
-scripts/vendor.mjs. Both are public.

@@ -4,7 +4,7 @@
 //
 // Eight named tools with narrow schemas, all funnelling into one operation core
 // and all registered through one gate. The safety property is NOT "there is
-// only one write tool" — that claim was wrong, and an external reviewer was
+// only one write tool" — that claim was wrong, and a design review was
 // right to say so. An operation enum is not a sandbox; seven operations behind
 // a dispatcher are still seven operations.
 //
@@ -75,7 +75,7 @@ function planeAt(x = 0, y = 0, z = 0): Plane {
  *
  * An earlier version of this file exposed a SINGLE `apply_operation` tool with
  * an operation enum, and argued that one verb was safer than seven. An external
- * reviewer took that apart correctly: an enum is not a sandbox. Seven operations
+ * review took that apart correctly: an enum is not a sandbox. Seven operations
  * behind a dispatcher are seven operations, in one origin and one JS heap, and
  * the actual control was always the gate at the registration boundary — not the
  * tool count. Worse, discriminated unions are measurably harder for a model to
@@ -247,7 +247,7 @@ const OPERATION_CORE: ToolDef = {
                     break;
                 }
                 case "undo": {
-                    // Grok's review named this gap: without undo the agent can
+                    // A design review named this gap: without undo the agent can
                     // create a wrong solid and has no way back, so the only
                     // recovery is a human reaching for the UI. An agent that can
                     // change a model should be able to retract the change.

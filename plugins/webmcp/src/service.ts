@@ -78,7 +78,7 @@ export class WebMcpService implements IService {
         // registering here — an agent talks to the TOP-LEVEL document, so a
         // registration in this frame would not be the surface it sees.
         if (framed) {
-            // Some hosts, including the ChatGPT/Codex in-app browser, expose
+            // Some hosts, including the ChatGPT in-app browser, expose
             // document.modelContext only on the top-level document. A framed
             // app does not need it: it publishes plain tool metadata to the
             // shell, which owns the top-level registration. Keep this branch

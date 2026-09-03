@@ -11,3 +11,9 @@ docs/video/qa/
 docs/video/.*-profile/
 docs/video/overlays/
 docs/video/*.mp4
+
+# Internal preparation material: not part of the submission.
+.planning/
+docs/DEVPOST_SUBMISSION.md
+docs/DEMO_SCRIPT.md
+docs/video/

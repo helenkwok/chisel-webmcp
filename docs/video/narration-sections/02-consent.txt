@@ -1,3 +1,0 @@
-Every tool call that changes the model stops here first and shows me exactly what it wants to do. This matters more than it looks. WebMCP has no consent primitive at all — no permission prompt, no user-gesture requirement — and readOnlyHint is only advisory. The spec says agents “must assume good faith from site developers.” So any safety this page has, the page author has to build. This dialog is that.
-
-There's the plate. Now the holes.

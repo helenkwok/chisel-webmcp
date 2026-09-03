@@ -1,1 +1,0 @@
-Now I save the model to IndexedDB, reload, and reopen it by id. The bracket is still there. Then the agent exports STEP behind the same approval gate. The result verifies a valid ISO envelope, a real B-rep solid, six analytic planes, and two cylindrical surfaces.

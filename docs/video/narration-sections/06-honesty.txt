@@ -1,1 +1,0 @@
-To be straight about what I built: Chili3d is the excellent open-source CAD application and kernel. I built the WebMCP integration: the agent toolset, a shared safety gate, and a shell that composes tools across apps. No fork, no claimed upstream work — just a drop-in agent surface.

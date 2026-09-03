@@ -131,7 +131,7 @@ tools at compile time.
 Worth saying out loud, because both are true and easy to get wrong:
 
 - **WebMCP is not MCP on the wire.** The spec *"does not prescribe the format in which tools are
-  exposed"*. An external MCP client — Claude Desktop, Cursor — **cannot** connect to a WebMCP page.
+  exposed"*. An external MCP client **cannot** connect to a WebMCP page.
   It is an in-browser-agent surface, and claiming otherwise would be wrong.
 - **It is a W3C Community Group draft, not a standard.** WebKit has filed *oppose*, Mozilla is
   *neutral*, the TAG review is open and labelled *"Missing: Multi-stakeholder support"*. Chrome and

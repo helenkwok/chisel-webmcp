@@ -45,9 +45,9 @@ chisel-webmcp/                  ← this repo: 100% new work
   scripts/vendor.mjs            ← pins upstream and builds the combined bundle
 
 deployed bundle:
-  dist/                         ← the pinned Chili3d build plus Chisel integration
-  dist/plugins/webmcp/          ← our plugin, auto-loaded at boot
-  dist/shell/                   ← the multi-app WebMCP shell
+  dist/index.html               ← the shell: one WebMCP surface over several apps  (/)
+  dist/cad/                     ← upstream Chili3d, byte-for-byte                 (/cad/)
+  dist/cad/plugins/webmcp/      ← our plugin, auto-loaded by Chili3d at boot
 ```
 
 ---
@@ -56,7 +56,7 @@ deployed bundle:
 
 The CAD app exposes **17 tools**: six read tools, eight named modelling tools, fillet and chamfer,
 and one gated export tool. The optional
-[`/shell/`](https://chisel-webmcp.helenkwok.workers.dev/shell/) adds two shell-owned read tools,
+[`/shell/`](https://chisel-webmcp.helenkwok.workers.dev/) adds two shell-owned read tools,
 giving the top-level agent one 19-tool surface across two apps.
 
 | Tool | |
@@ -161,6 +161,29 @@ desktop in-app browser. Without WebMCP the plugin degrades to a no-op and Chili3
 you'll see a badge saying so.
 
 The direct CAD experience is at `/`; the multi-app composition demo is at `/shell/`.
+
+## Built on
+
+Chisel is a thin layer over other people's good work, and says so:
+
+| | Licence | Role |
+|---|---|---|
+| [Chili3d](https://github.com/xiangechen/chili3d) | AGPL-3.0 | the CAD application: OpenCascade 8 in WebAssembly, Three.js viewport, persistence, STEP export |
+| [flint-chart](https://github.com/microsoft/flint-chart) | MIT | Microsoft's chart language *for agents*; compiles the agent-authored spec behind `shell_chart_model_data` |
+| [vega-embed](https://github.com/vega/vega-embed) / Vega-Lite | BSD-3 | draws the compiled chart |
+| [WebMCP](https://github.com/webmachinelearning/webmcp) | W3C CG draft | the standard everything here is registered against |
+
+flint-chart and vega-embed are loaded lazily from a CDN and are optional: if either fails, the
+statistics panel falls back to a built-in sparkline rather than going blank.
+
+## What's next
+
+- Fillet and chamfer on *selected* edges rather than all edges, so "chamfer this edge" works.
+- Sketch-and-extrude, so an agent can work from a 2D profile.
+- A before/after geometry diff in the confirm dialog, instead of the call text.
+- A third app in the shell: a [HyperFrames](https://github.com/heygen-com/hyperframes) composition
+  at `/video/` that turns the current model into a rendered turntable video on request — the same
+  catalogue-driven bridge, so the shell needs no code changes to add it.
 
 ## Licence
 

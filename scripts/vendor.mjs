@@ -9,7 +9,7 @@
 // MIT licensed. See LICENSE.
 
 import { execSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -44,7 +44,15 @@ cpSync(resolve(pluginSrc, "manifest.json"), resolve(pubPlugins, "webmcp/manifest
 cpSync(resolve(pluginInVendor, "dist/main.js"), resolve(pubPlugins, "webmcp/dist/main.js"));
 
 run("npm run build", VENDOR);
-cpSync(resolve(VENDOR, "dist"), resolve(ROOT, "dist"), { recursive: true });
+
+// Layout of the deployed site:
+//   /        the shell — one WebMCP surface over several apps (what a visitor lands on)
+//   /cad/    upstream Chili3d, byte-for-byte, with the Chisel plugin dropped in
+// Chili3d's asset URLs are relative and it derives its plugin folder from
+// location.pathname, so it runs unmodified under the prefix.
+rmSync(resolve(ROOT, "dist"), { recursive: true, force: true });
+cpSync(resolve(VENDOR, "dist"), resolve(ROOT, "dist/cad"), { recursive: true });
+cpSync(resolve(ROOT, "shell/index.html"), resolve(ROOT, "dist/index.html"));
 cpSync(resolve(ROOT, "shell"), resolve(ROOT, "dist/shell"), { recursive: true });
 
 console.log("\n✓ Bundle ready in ./dist — pinned Chili3d build plus the Chisel plugin and shell.");

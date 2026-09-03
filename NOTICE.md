@@ -21,3 +21,12 @@ entitled to its Corresponding Source, which is:
 
 Chili3d embeds OpenCascade (OCCT) compiled to WebAssembly. OCCT is licensed **LGPL-2.1** with an
 exception. See the Chili3d repository for its full notices.
+
+## flint-chart — MIT
+
+The shell loads [flint-chart](https://github.com/microsoft/flint-chart) (Microsoft, MIT) from a
+CDN at runtime to compile agent-authored chart specs to Vega-Lite. Not vendored; not modified.
+
+## vega-embed, Vega, Vega-Lite — BSD-3-Clause
+
+Loaded from a CDN at runtime to render the compiled chart. Not vendored; not modified.

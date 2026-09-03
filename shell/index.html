@@ -48,7 +48,7 @@
   .app .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
 
   #stats{flex:1;overflow:auto}
-  #chart{width:100%;height:150px;display:block}
+  #chart{width:100%;height:150px;display:block;margin-bottom:6px}
   .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
   .kpi{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 10px}
   .kpi .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
@@ -190,6 +190,33 @@ const SHELL_TOOLS = [
       }],
     }),
   },
+  {
+    name: "shell_chart_model_data",
+    title: "Chart data about the model",
+    description:
+      "Draw a chart of this session's data in the statistics panel. You author the chart yourself: pick a dataset and a chart type and the spec is compiled by flint-chart (Microsoft's chart language for agents) into Vega-Lite. " +
+      "Datasets: 'objectCountHistory' (how many objects existed at each sample, good as a Line Chart or Area Chart) and 'toolCallsByPhase' (tool calls versus approved changes, good as a Bar Chart). " +
+      "Needs at least two rows, so change the model a few times first. Give a headline that says what the chart shows, not what it is.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        datasetName: { type: "string", enum: ["objectCountHistory", "toolCallsByPhase"], description: "Which session dataset to chart." },
+        chartType: { type: "string", description: "A flint-chart template name, e.g. 'Line Chart', 'Bar Chart', 'Area Chart'." },
+        headline: { type: "string", description: "What the chart says, in words." },
+      },
+      required: ["datasetName", "chartType"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
+    execute: async (input) => {
+      try {
+        const r = await renderFlintChart(input ?? {});
+        return { content: [{ type: "text", text: JSON.stringify(r, null, 1) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Could not chart that: ${err.message}` }], isError: true };
+      }
+    },
+  },
 ];
 
 // ── Registration ────────────────────────────────────────────────────────────
@@ -284,9 +311,105 @@ async function refreshStats() {
   drawChart();
 }
 
-/** A small sparkline. Inline SVG so the shell ships zero dependencies. */
+// ── Charting ────────────────────────────────────────────────────────────────
+//
+// flint-chart (github.com/microsoft/flint-chart, MIT) exists for exactly this
+// situation: it is "a visualization language that lets AI agents reliably create
+// expressive charts from simple specs". So rather than hard-coding a chart, the
+// shell exposes charting AS A TOOL and lets the agent author the spec. flint
+// compiles that spec to Vega-Lite; vega-embed draws it.
+//
+// Both are loaded lazily from a CDN and BOTH ARE OPTIONAL. If either fails to
+// load, the inline SVG sparkline below still renders, because a panel that goes
+// blank when a CDN has a bad day is worse than a plain chart.
+
+let flint = null, vegaEmbed = null, flintState = "unloaded";
+
+async function loadFlint() {
+  if (flintState === "ready" || flintState === "failed") return flintState === "ready";
+  try {
+    flintState = "loading";
+    const [f, v] = await Promise.all([
+      import("https://cdn.jsdelivr.net/npm/flint-chart@0.5.1/+esm"),
+      import("https://cdn.jsdelivr.net/npm/vega-embed@6/+esm"),
+    ]);
+    flint = f;
+    vegaEmbed = v.default ?? v;
+    flintState = "ready";
+    return true;
+  } catch (err) {
+    console.warn("[Chisel Shell] flint-chart unavailable, using the built-in sparkline:", err);
+    flintState = "failed";
+    return false;
+  }
+}
+
+/** The datasets the agent may chart. Named so a tool description can list them. */
+function dataset(name) {
+  if (name === "objectCountHistory") {
+    return {
+      rows: history.map((n, i) => ({ Sample: i + 1, Objects: n })),
+      types: { Sample: "Year", Objects: "Quantity" },
+      x: "Sample", y: "Objects",
+    };
+  }
+  if (name === "toolCallsByPhase") {
+    return {
+      rows: [
+        { Phase: "calls", Count: toolCalls },
+        { Phase: "changes approved", Count: changeCount },
+      ],
+      types: { Phase: "Country", Count: "Quantity" },
+      x: "Phase", y: "Count",
+    };
+  }
+  return null;
+}
+
+/** Compile an agent-authored flint spec and draw it. */
+async function renderFlintChart({ datasetName, chartType, headline }) {
+  const ok = await loadFlint();
+  const d = dataset(datasetName);
+  if (!d) throw new Error(`Unknown dataset "${datasetName}". Use objectCountHistory or toolCallsByPhase.`);
+  if (d.rows.length < 2) throw new Error(`Dataset "${datasetName}" has ${d.rows.length} row(s). Change the model first so there is something to chart.`);
+  if (!ok) throw new Error("flint-chart could not be loaded from the CDN, so the panel is showing its built-in sparkline instead. This is a network limitation, not a modelling error.");
+
+  const spec = flint.assembleVegaLite({
+    data: { values: d.rows },
+    semantic_types: d.types,
+    chart_spec: {
+      chartType,
+      // `encodings` is plural and required, and a bare string is shorthand for
+      // { field: <string> }. `title` is the headline flint leans on to name the
+      // measure, so a chart authored without one loses its subject.
+      encodings: { x: d.x, y: d.y },
+      title: headline ?? `${d.y} by ${d.x}`,
+      baseSize: { width: 330, height: 180 },
+      canvasSize: { width: 340, height: 190 },
+    },
+  });
+  const vlSpec = spec?.spec ?? spec;
+  // Match the panel rather than shipping Vega's default white card.
+  vlSpec.background = "transparent";
+  vlSpec.config = { ...(vlSpec.config ?? {}), axis: { labelColor: "#9aa8c7", titleColor: "#9aa8c7", gridColor: "#26304d", domainColor: "#26304d" }, title: { color: "#e8edf7" }, view: { stroke: null } };
+
+  const host = document.getElementById("chart");
+  const mount = document.createElement("div");
+  mount.id = "chart";
+  // Explicit box: the element it replaces is an <svg> sized by CSS, and a bare
+  // div inherits none of that, which let the caption render over the chart.
+  mount.style.cssText = "display:block;width:100%;min-height:190px;margin:0 0 6px;overflow:hidden";
+  host.replaceWith(mount);
+  await vegaEmbed(mount, vlSpec, { actions: false, renderer: "svg" });
+  document.getElementById("chartNote").textContent =
+    `flint-chart → Vega-Lite · ${chartType} · ${d.rows.length} rows`;
+  return { chartType, datasetName, rows: d.rows.length, compiledBy: "flint-chart 0.5.1" };
+}
+
+/** Built-in fallback. Inline SVG so the panel is never empty. */
 function drawChart() {
   const svg = document.getElementById("chart");
+  if (!svg || svg.tagName.toLowerCase() !== "svg") return;   // flint owns it now
   const W = 360, H = 150, pad = 8;
   if (history.length < 2) { svg.innerHTML = ""; return; }
   const max = Math.max(2, ...history);

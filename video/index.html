@@ -110,10 +110,14 @@ const TOOLS = [
 const text = (v, isError = false) => ({ content: [{ type: "text", text: typeof v === "string" ? v : JSON.stringify(v, null, 1) }], isError });
 const catalogue = TOOLS.map(({ name, title, description, inputSchema, write }) => ({ name, title, description, inputSchema, write }));
 
-if (new URLSearchParams(location.search).has("capture")) {
+// Filming: ?capture hides chrome; ?calls=N seeds the session statistic, since a
+// standalone page has no session to read it from and a "0" on screen is wrong.
+const q = new URLSearchParams(location.search);
+if (q.has("capture")) {
   document.getElementById("badge").style.display = "none";
   document.getElementById("scrub").style.display = "none";
 }
+if (q.has("calls")) state.calls = Number(q.get("calls")) || 0;
 
 function post(msg) { try { window.parent.postMessage(msg, location.origin); } catch {} }
 const framed = (() => { try { return window.parent !== window; } catch { return true; } })();
